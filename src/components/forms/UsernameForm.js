@@ -1,45 +1,56 @@
-'use client';
-import grabUsername from "@/actions/grabUsername";
-import SubmitButton from "@/components/buttons/SubmitButton";
-import RightIcon from "@/components/icons/RightIcon";
-import {redirect} from "next/navigation";
-import {useState} from "react";
+"use client";
 
-export default function UsernameForm({desiredUsername}) {
-  const [taken,setTaken] = useState(false);
-  async function handleSubmit(formData) {
-    const result = await grabUsername(formData);
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-    setTaken(result === false);
-    if (result) {
-      redirect('/account?created='+formData.get('username'));
+export default function UsernameForm({ desiredUsername }) {
+  const [username, setUsername] = useState(desiredUsername || "");
+  const [error, setError] = useState("");
+  const router = useRouter();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+
+    const res = await fetch("/api/username", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error || "Something went wrong");
+      return;
     }
+
+    router.push("/account");
   }
+
   return (
-    <form action={handleSubmit}>
-      <h1 className="text-4xl font-bold text-center mb-2 mt-20">
-        Grab your username
-      </h1>
-      <p className="text-center mb-6 text-gray-500">
-        Choose your username
-      </p>
-      <div className="max-w-xs mx-auto">
-        <input
-          name="username"
-          className="block p-2 mx-auto border w-full mb-2 text-center rounded-md"
-          defaultValue={desiredUsername}
-          type="text"
-          placeholder="username" />
-        {taken && (
-          <div className="bg-red-200 border border-red-500 p-2 mb-2 text-center rounded-md">
-            This username is taken
-          </div>
-        )}
-        <SubmitButton>
-          <span>Claim your username</span>
-          <RightIcon />
-        </SubmitButton>
-      </div>
+    <form onSubmit={handleSubmit} className="max-w-md mx-auto mt-10">
+      <h2 className="text-2xl font-bold mb-4">Choose Your Username</h2>
+
+      <input
+        type="text"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        className="w-full border p-2 rounded mb-4"
+        placeholder="username"
+        required
+      />
+
+      {error && <p className="text-red-500 mb-3">{error}</p>}
+
+      <button
+        type="submit"
+        className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-300"
+      >
+        Save Username
+      </button>
     </form>
   );
 }
