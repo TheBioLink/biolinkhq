@@ -1,41 +1,41 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import { FaTwitter, FaFacebookF, FaGithub, FaLinkedinIn } from 'react-icons/fa';
+import Link from "next/link";
+import Image from "next/image";
 
 export default function Footer() {
   return (
-    <footer className="bg-white border-t py-4 mt-8">
-      <div className="max-w-6xl mx-auto px-4 flex flex-wrap justify-between items-center">
-        {/* Logo and Name */}
-        <div className="flex items-center text-blue-500 hover:text-blue-300 mb-1 md:mb-0">
-          <Image
-            src={'/assets/logo.webp'}
-            alt="logo"
-            height={40}
-            width={40}
-          />
-          <span className="font-extrabold text-2xl ml-2">Biolinkhq</span>
+    <footer className="bg-[#0b0f14] border-t border-white/10 py-6">
+      <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center gap-4">
+        <div className="flex items-center">
+          <Image src={"/assets/logo.webp"} alt="logo" width={34} height={34} />
+          <span className="font-extrabold text-xl ml-2 text-gray-100">
+            Biolinkhq
+          </span>
         </div>
 
-        {/* Copyright for mobile */}
-        <div className="w-full text-center text-sm text-gray-500 order-3 md:order-2 md:w-auto mt-1 md:mt-0 md:flex-1 md:text-center">
+        <div className="text-sm text-gray-400 md:flex-1 md:text-center">
           © {new Date().getFullYear()} Biolinkhq by theceosolace. All rights reserved.
         </div>
 
-        {/* Social Media Icons */}
-        <div className="flex items-center gap-4 order-2 md:order-3 mb-1 md:mb-0">
-          <Link href="https://twitter.com/biolinkhq" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-300">
-            <FaTwitter size="1.5em" />
+        <div className="flex gap-4 text-sm font-bold">
+          <Link href="/privacy" className="text-gray-300 hover:text-white">
+            Privacy
           </Link>
-          <Link href="https://www.facebook.com/biolinkhq" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-300">
-            <FaFacebookF size="1.5em" />
-          </Link>
-          <Link href="https://github.com/biolinkhq" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-gray-500">
-            <FaGithub size="1.5em" />
-          </Link>
-          <Link href="https://www.linkedin.com/in/biolinkhq/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-300">
-            <FaLinkedinIn size="1.5em" />
-          </Link>
+          <a
+            href="https://twitter.com/biolinkhq"
+            target="_blank"
+            rel="noreferrer"
+            className="text-gray-300 hover:text-white"
+          >
+            X
+          </a>
+          <a
+            href="https://github.com/biolinkhq"
+            target="_blank"
+            rel="noreferrer"
+            className="text-gray-300 hover:text-white"
+          >
+            GitHub
+          </a>
         </div>
       </div>
     </footer>
