@@ -9,46 +9,36 @@ export default async function Header() {
   const session = await getServerSession(authOptions);
 
   return (
-    <header className="bg-white border-b py-2">
+    <header className="bg-[#0b0f14] border-b border-white/10 py-2">
       <div className="max-w-6xl mx-auto px-4 flex flex-wrap justify-between items-center">
-        {/* Logo */}
         <Link
           href="/"
-          className="flex items-center text-blue-500 hover:text-blue-300 hover:underline"
+          className="flex items-center text-blue-400 hover:text-blue-300 hover:underline"
         >
-          <Image
-            src={"/assets/logo.webp"}
-            alt="logo"
-            height={40}
-            width={40}
-          />
-          <span className="font-extrabold text-2xl">Biolinkhq</span>
+          <Image src={"/assets/logo.webp"} alt="logo" height={40} width={40} />
+          <span className="font-extrabold text-2xl ml-2">Biolinkhq</span>
         </Link>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden sm:flex justify-center gap-10 text-slate-500 text-sm flex-grow font-bold">
-          <Link href="/about" className="hover:underline">
+        <nav className="hidden sm:flex justify-center gap-10 text-gray-300 text-sm flex-grow font-bold">
+          <Link href="/about" className="hover:text-white hover:underline">
             About
           </Link>
-          <Link href="/pricing" className="hover:underline">
+          <Link href="/pricing" className="hover:text-white hover:underline">
             Pricing
           </Link>
-          <Link href="/contact" className="hover:underline">
+          <Link href="/contact" className="hover:text-white hover:underline">
             Contact
           </Link>
-
-          {/* NEW Privacy Link */}
-          <Link href="/privacy" className="hover:underline">
+          <Link href="/privacy" className="hover:text-white hover:underline">
             Privacy
           </Link>
         </nav>
 
-        {/* Session/Login Buttons */}
-        <div className="hidden sm:flex items-center gap-4 text-sm text-slate-500">
+        <div className="hidden sm:flex items-center gap-4 text-sm text-gray-300">
           {!!session ? (
             <>
               <Link
-                className="flex items-center gap-2 border p-2 px-4 shadow rounded-md text-white bg-blue-500 hover:bg-blue-300 font-bold"
+                className="flex items-center gap-2 border border-white/10 p-2 px-4 shadow rounded-md text-white bg-blue-600 hover:bg-blue-500 font-bold"
                 href="/account"
               >
                 Account
@@ -57,7 +47,7 @@ export default async function Header() {
             </>
           ) : (
             <Link
-              className="flex items-center gap-2 border p-2 px-4 shadow rounded-md text-white bg-blue-500 hover:bg-blue-300 font-bold"
+              className="flex items-center gap-2 border border-white/10 p-2 px-4 shadow rounded-md text-white bg-blue-600 hover:bg-blue-500 font-bold"
               href="/login"
             >
               Sign In
@@ -65,7 +55,6 @@ export default async function Header() {
           )}
         </div>
 
-        {/* Mobile Hamburger */}
         <HamburgerMenu session={session} />
       </div>
     </header>
