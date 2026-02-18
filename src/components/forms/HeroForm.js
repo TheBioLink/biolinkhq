@@ -1,52 +1,62 @@
-'use client';
+"use client";
 
-import {signIn} from "next-auth/react";
-import {redirect, useRouter} from "next/navigation";
-import {useEffect} from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-export default function HeroForm({user}) {
+export default function HeroForm({ user }) {
   const router = useRouter();
-  useEffect(() => {
-    if (
-      'localStorage' in window
-      && window.localStorage.getItem('desiredUsername')
-    ) {
-      const username = window.localStorage.getItem('desiredUsername');
-      window.localStorage.removeItem('desiredUsername');
-      redirect('/account?desiredUsername=' + username);
+  const [username, setUsername] = useState("");
+
+  function handleSubmit(e) {
+    e.preventDefault();
+
+    // If logged in, go to account (they can set username there)
+    if (user) {
+      router.push("/account");
+      return;
     }
-  }, []);
-  async function handleSubmit(ev) {
-    ev.preventDefault();
-    const form = ev.target;
-    const input = form.querySelector('input');
-    const username = input.value;
-    if (username.length > 0) {
-      if (user) {
-        router.push('/account?desiredUsername='+username);
-      } else {
-        window.localStorage.setItem('desiredUsername', username);
-        await signIn('google');
-      }
-    }
+
+    // If not logged in, send them to login
+    router.push("/login");
   }
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="inline-flex items-center shadow-lg bg-white shadow-gray-500/20 rounded-md">
-          <span className="bg-white py-4 pl-4 rounded-md">
-            biolinkhq.com/
+    <div className="mt-8">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
+      >
+        <div className="flex w-full sm:w-[420px] overflow-hidden rounded-lg border border-white/10 bg-white/5">
+          <span className="px-4 py-3 text-sm font-semibold text-gray-200 bg-black/40 border-r border-white/10 whitespace-nowrap">
+            biolinkhq.lol/
           </span>
-      <input
-        type="text"
-        className=""
-        style={{backgroundColor:'white',marginBottom:0,paddingLeft:0}}
-        placeholder="username"/>
-      <button
-        type="submit"
-        className="bg-blue-500 hover:bg-blue-300 rounded-md text-white py-4 px-6 whitespace-nowrap">
-        Join for Free
-      </button>
-    </form>
+
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="username"
+            autoComplete="off"
+            className="flex-1 px-4 py-3 bg-transparent text-gray-100 placeholder:text-gray-500 outline-none"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold shadow disabled:opacity-60"
+        >
+          {user ? "Go to Dashboard" : "Join for Free"}
+        </button>
+      </form>
+
+      {!user && (
+        <p className="mt-3 text-sm text-gray-400">
+          Already have an account?{" "}
+          <Link href="/login" className="text-blue-400 hover:text-blue-300 underline">
+            Sign in
+          </Link>
+        </p>
+      )}
+    </div>
   );
 }
