@@ -1,26 +1,26 @@
 import Header from "@/components/Header";
-import {Lato} from 'next/font/google'
-import '../globals.css'
 import Footer from "@/components/Footer";
-const lato = Lato({ subsets: ['latin'], weight: ['400', '700'] })
+import { Lato } from "next/font/google";
+import "../globals.css";
+
+const lato = Lato({ subsets: ["latin"], weight: ["400", "700"] });
 
 export const metadata = {
-  title: 'Biolinkhq by theceosolace',
-  description: 'Share your links, social profiles, contact info and more on one page with Biolinkhq',
-}
+  title: "Biolinkhq by theceosolace",
+  description:
+    "Share your links, social profiles, contact info and more on one page with Biolinkhq",
+};
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className={lato.className}>
-        <main>
-          <Header />
-          <div className="max-w-6xl mx-auto p-6 flex flex-col min-h-screen">
-            {children}
-          </div>
-          <Footer />
-        </main>
+    <html lang="en" className="dark">
+      <body className={`${lato.className} bg-[#0b0f14] text-gray-100`}>
+        <Header />
+        <div className="max-w-6xl mx-auto px-4 py-6 min-h-screen">
+          {children}
+        </div>
+        <Footer />
       </body>
     </html>
-  )
+  );
 }
