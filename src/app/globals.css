@@ -2,63 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
-body{
-    @apply bg-gray-100;
+/* Tell the browser we are dark */
+:root {
+  color-scheme: dark;
 }
 
-input[type="text"], textarea{
-    @apply bg-gray-100 w-full block py-2 px-2 mb-2;
-}
-label.input-label{
-    @apply uppercase text-gray-400 text-xs mb-2 font-semibold;
-}
-
-.radio-togglers{
-    @apply p-1 bg-gray-200 inline-flex cursor-pointer;
-}
-.radio-togglers div{
-    @apply p-2 px-4 text-gray-500 block flex items-center gap-2 cursor-pointer;
-}
-.radio-togglers input[type="radio"]{
-    @apply hidden;
-}
-.radio-togglers input[type="radio"]:checked + div{
-    @apply bg-white text-blue-600;
+/* Base page colors */
+html,
+body {
+  background: #0b0f14;
+  color: #e5e7eb;
 }
 
-.sortable-ghost{
-    opacity: .2;
-}
-
-
-input#navCb:checked ~ aside{
-    left:0;
-}
-input#navCb:checked ~ .backdrop{
-    display: block;
-}
-/* LoadingSpinner.css */
-.loading-spinner-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh; /* Adjust based on where you're using the spinner */
+/* Make default elements dark */
+@layer base {
+  a {
+    color: inherit;
   }
 
-  .loading-spinner {
-    border: 4px solid rgba(0, 0, 0, 0.1);
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border-left-color: #09f;
-    animation: spin 1s ease infinite;
+  input,
+  textarea,
+  select {
+    background: rgba(0, 0, 0, 0.35);
+    color: #e5e7eb;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 0.5rem;
   }
 
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
+  input::placeholder,
+  textarea::placeholder {
+    color: rgba(229, 231, 235, 0.45);
   }
+
+  hr {
+    border-color: rgba(255, 255, 255, 0.10);
+  }
+}
+
+/*
+  🔥 HARD OVERRIDES:
+  Any leftover Tailwind classes like bg-white / text-gray-800 / border / etc
+  will automatically render dark, even if you didn’t edit the component file.
+*/
+.bg-white {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+.bg-gray-50,
+.bg-gray-100 {
+  background-color: #0b0f14 !important;
+}
+.text-gray-900,
+.text-gray-800,
+.text-gray-700,
+.text-slate-900,
+.text-slate-800,
+.text-slate-700 {
+  color: #e5e7eb !important;
+}
+.text-gray-600,
+.text-gray-500,
+.text-gray-400,
+.text-slate-600,
+.text-slate-500,
+.text-slate-400 {
+  color: rgba(229, 231, 235, 0.75) !important;
+}
+.border,
+.border-b,
+.border-t,
+.border-l,
+.border-r {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Common “card” look */
+.shadow,
+.shadow-md,
+.shadow-lg,
+.shadow-xl {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Make default buttons readable */
+button,
+[type="button"],
+[type="submit"] {
+  color: #e5e7eb;
+}
+
+/* Optional: make file inputs readable */
+input[type="file"] {
+  background: transparent !important;
+  border: none !important;
+}
