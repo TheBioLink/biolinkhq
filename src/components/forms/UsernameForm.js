@@ -6,51 +6,61 @@ import { useRouter } from "next/navigation";
 export default function UsernameForm({ desiredUsername }) {
   const [username, setUsername] = useState(desiredUsername || "");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    const res = await fetch("/api/username", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username }),
-    });
+    try {
+      const res = await fetch("/api/page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uri: username }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error || "Something went wrong");
-      return;
+      if (!res.ok) {
+        setError(data?.error || "Failed to save username");
+        return;
+      }
+
+      router.push("/account");
+      router.refresh();
+    } catch (err) {
+      setError("Network error");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/account");
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto mt-10">
-      <h2 className="text-2xl font-bold mb-4">Choose Your Username</h2>
+    <div className="p-4 max-w-md mx-auto mt-10">
+      <h1 className="text-3xl font-bold text-center mb-2">Pick your username</h1>
+      <p className="text-center mb-6 text-gray-500">This becomes your public link.</p>
 
-      <input
-        type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        className="w-full border p-2 rounded mb-4"
-        placeholder="username"
-        required
-      />
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full border p-3 rounded-md"
+          placeholder="biolinkhq"
+          autoComplete="off"
+        />
 
-      {error && <p className="text-red-500 mb-3">{error}</p>}
+        {error && <div className="text-red-600 text-sm">{error}</div>}
 
-      <button
-        type="submit"
-        className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-300"
-      >
-        Save Username
-      </button>
-    </form>
+        <button
+          disabled={loading}
+          className="w-full bg-blue-500 hover:bg-blue-300 text-white font-bold py-3 rounded-md disabled:opacity-60"
+          type="submit"
+        >
+          {loading ? "Saving..." : "Save username"}
+        </button>
+      </form>
+    </div>
   );
 }
