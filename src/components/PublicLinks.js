@@ -61,14 +61,47 @@ async function trackClick(uri, url) {
   } catch {}
 }
 
+function iconFromLabelOrUrl(label, href) {
+  const l = (label || "").toLowerCase();
+
+  // If they typed a known platform name in the label, prefer that
+  if (l.includes("instagram")) return faInstagram;
+  if (l.includes("tiktok")) return faTiktok;
+  if (l.includes("youtube")) return faYoutube;
+  if (l === "x" || l.includes("twitter")) return faTwitter;
+  if (l.includes("facebook")) return faFacebook;
+  if (l.includes("linkedin")) return faLinkedin;
+  if (l.includes("github")) return faGithub;
+  if (l.includes("discord")) return faDiscord;
+  if (l.includes("email") || href.startsWith("mailto:")) return faEnvelope;
+  if (l.includes("phone") || href.startsWith("tel:")) return faPhone;
+  if (l.includes("site") || l.includes("website")) return faGlobe;
+
+  // Otherwise detect from URL using your react-icons helper (then fallback to link)
+  // getIconForUrl returns a React component; we can’t use it directly with FontAwesome,
+  // so we only use it as “is it a known social?” by string matching:
+  const u = href.toLowerCase();
+  if (u.includes("instagram.com")) return faInstagram;
+  if (u.includes("tiktok.com")) return faTiktok;
+  if (u.includes("youtube.com") || u.includes("youtu.be")) return faYoutube;
+  if (u.includes("x.com") || u.includes("twitter.com")) return faTwitter;
+  if (u.includes("facebook.com")) return faFacebook;
+  if (u.includes("linkedin.com")) return faLinkedin;
+  if (u.includes("github.com")) return faGithub;
+  if (u.includes("discord.gg") || u.includes("discord.com")) return faDiscord;
+
+  return faLink;
+}
+
 export default function PublicLinks({ uri, buttons = {}, links = [] }) {
   const linksArr = Array.isArray(links) ? links : [];
 
+  // ✅ Support BOTH shapes:
+  // 1) Object: { instagram: "...", email: "..." }
   const buttonsIsObject =
     buttons && typeof buttons === "object" && !Array.isArray(buttons);
 
-  // Convert object buttons -> icon row items
-  const iconButtons = buttonsIsObject
+  const objectButtons = buttonsIsObject
     ? Object.entries(buttons)
         .map(([key, value]) => ({ key, value }))
         .filter((b) => b.value && b.value.toString().trim().length > 0)
@@ -84,10 +117,30 @@ export default function PublicLinks({ uri, buttons = {}, links = [] }) {
               : normalizeHref(raw);
 
           const meta = BUTTON_META[key] || { label: key, icon: faLink };
-          return { key, href, label: meta.label, icon: meta.icon };
+          return { label: meta.label, href, icon: meta.icon };
         })
         .filter((b) => b.href)
     : [];
+
+  // 2) Array: [{ label, url }]
+  const arrayButtons = Array.isArray(buttons)
+    ? buttons
+        .map((b) => {
+          const href = normalizeHref(b?.url);
+          if (!href) return null;
+          const icon = iconFromLabelOrUrl(b?.label, href);
+          return { label: b?.label || "Link", href, icon };
+        })
+        .filter(Boolean)
+    : [];
+
+  // Merge both, dedupe by href
+  const seen = new Set();
+  const iconButtons = [...objectButtons, ...arrayButtons].filter((b) => {
+    if (seen.has(b.href)) return false;
+    seen.add(b.href);
+    return true;
+  });
 
   return (
     <>
@@ -96,7 +149,7 @@ export default function PublicLinks({ uri, buttons = {}, links = [] }) {
         <div className="mt-5 flex flex-wrap justify-center gap-4 px-4">
           {iconButtons.map((b, idx) => (
             <a
-              key={`${b.key}-${idx}`}
+              key={`${b.href}-${idx}`}
               href={b.href}
               target={b.href.startsWith("/") ? "_self" : "_blank"}
               rel="noreferrer"
@@ -152,7 +205,6 @@ export default function PublicLinks({ uri, buttons = {}, links = [] }) {
         </div>
       )}
 
-      {/* empty state */}
       {iconButtons.length === 0 && linksArr.length === 0 && (
         <div className="px-4 mt-8 text-center text-gray-400">
           No links added yet.
