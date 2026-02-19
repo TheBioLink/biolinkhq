@@ -3,7 +3,7 @@
 
 &#xa0;
 
-  <img src="./public/logo.png" alt="preview" />
+  <img src="./public/assets/logo.webp" alt="preview" />
 
 <a href="https:///">Demo</a>
 
