@@ -1,8 +1,37 @@
 "use client";
 
-import { getIconForUrl } from "@/libs/linkIcons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faLink } from "@fortawesome/free-solid-svg-icons";
+import {
+  faEnvelope,
+  faGlobe,
+  faLink,
+  faPhone,
+} from "@fortawesome/free-solid-svg-icons";
+import {
+  faFacebook,
+  faGithub,
+  faInstagram,
+  faLinkedin,
+  faTiktok,
+  faTwitter,
+  faYoutube,
+  faDiscord,
+} from "@fortawesome/free-brands-svg-icons";
+import { getIconForUrl } from "@/libs/linkIcons";
+
+const BUTTON_META = {
+  website: { label: "Website", icon: faGlobe },
+  email: { label: "Email", icon: faEnvelope },
+  phone: { label: "Phone", icon: faPhone },
+  instagram: { label: "Instagram", icon: faInstagram },
+  tiktok: { label: "TikTok", icon: faTiktok },
+  youtube: { label: "YouTube", icon: faYoutube },
+  twitter: { label: "X", icon: faTwitter },
+  facebook: { label: "Facebook", icon: faFacebook },
+  linkedin: { label: "LinkedIn", icon: faLinkedin },
+  github: { label: "GitHub", icon: faGithub },
+  discord: { label: "Discord", icon: faDiscord },
+};
 
 function normalizeHref(raw) {
   const v = (raw || "").toString().trim();
@@ -32,41 +61,65 @@ async function trackClick(uri, url) {
   } catch {}
 }
 
-export default function PublicLinks({ uri, buttons = [], links = [] }) {
-  const buttonsArr = Array.isArray(buttons) ? buttons : [];
+export default function PublicLinks({ uri, buttons = {}, links = [] }) {
   const linksArr = Array.isArray(links) ? links : [];
+
+  const buttonsIsObject =
+    buttons && typeof buttons === "object" && !Array.isArray(buttons);
+
+  // Convert object buttons -> icon row items
+  const iconButtons = buttonsIsObject
+    ? Object.entries(buttons)
+        .map(([key, value]) => ({ key, value }))
+        .filter((b) => b.value && b.value.toString().trim().length > 0)
+        .map((b) => {
+          const key = b.key || "link";
+          const raw = (b.value || "").toString().trim();
+
+          const href =
+            key === "email"
+              ? `mailto:${raw}`
+              : key === "phone"
+              ? `tel:${raw}`
+              : normalizeHref(raw);
+
+          const meta = BUTTON_META[key] || { label: key, icon: faLink };
+          return { key, href, label: meta.label, icon: meta.icon };
+        })
+        .filter((b) => b.href)
+    : [];
 
   return (
     <>
-      {/* ✅ BUTTONS (distinct style) */}
-      {buttonsArr.length > 0 && (
-        <div className="px-4 mt-6 space-y-3">
-          {buttonsArr.map((b, idx) => {
-            const href = normalizeHref(b?.url);
-            if (!href) return null;
-
-            const Icon = getIconForUrl(href);
-
-            return (
-              <a
-                key={idx}
-                href={href}
-                target={href.startsWith("/") ? "_self" : "_blank"}
-                rel="noreferrer"
-                onClick={() => trackClick(uri, href)}
-                className="w-full flex items-center justify-center gap-3 rounded-2xl px-5 py-4
-                           bg-blue-600 hover:bg-blue-500 text-white font-extrabold
-                           shadow-lg shadow-blue-500/10 transition"
-              >
-                <Icon />
-                <span className="truncate">{b.label || "Open"}</span>
-              </a>
-            );
-          })}
+      {/* ✅ Buttons row (circle icons like your screenshot) */}
+      {iconButtons.length > 0 && (
+        <div className="mt-5 flex flex-wrap justify-center gap-4 px-4">
+          {iconButtons.map((b, idx) => (
+            <a
+              key={`${b.key}-${idx}`}
+              href={b.href}
+              target={b.href.startsWith("/") ? "_self" : "_blank"}
+              rel="noreferrer"
+              onClick={() => trackClick(uri, b.href)}
+              aria-label={b.label}
+              title={b.label}
+              className="
+                w-16 h-16 rounded-full
+                bg-white/5 border border-white/20
+                flex items-center justify-center
+                hover:bg-white/10 hover:border-white/30
+                transition
+              "
+            >
+              <span className="text-2xl text-gray-100">
+                <FontAwesomeIcon icon={b.icon} />
+              </span>
+            </a>
+          ))}
         </div>
       )}
 
-      {/* ✅ LINKS (card style, different from buttons) */}
+      {/* ✅ Links list (cards below buttons) */}
       {linksArr.length > 0 && (
         <div className="px-4 mt-8 mb-12 space-y-3">
           {linksArr.map((l, idx) => {
@@ -82,8 +135,7 @@ export default function PublicLinks({ uri, buttons = [], links = [] }) {
                 target={href.startsWith("/") ? "_self" : "_blank"}
                 rel="noreferrer"
                 onClick={() => trackClick(uri, href)}
-                className="w-full flex items-center justify-between bg-white/5 border border-white/10
-                           rounded-xl p-4 hover:bg-white/10 transition"
+                className="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4 shadow-sm hover:bg-white/10 hover:shadow transition"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-black/30 border border-white/10 flex items-center justify-center">
@@ -93,7 +145,6 @@ export default function PublicLinks({ uri, buttons = [], links = [] }) {
                     {l.title || l.url}
                   </span>
                 </div>
-
                 <span className="text-gray-400 text-xl">›</span>
               </a>
             );
@@ -101,10 +152,9 @@ export default function PublicLinks({ uri, buttons = [], links = [] }) {
         </div>
       )}
 
-      {/* If no icons match */}
-      {buttonsArr.length === 0 && linksArr.length === 0 && (
+      {/* empty state */}
+      {iconButtons.length === 0 && linksArr.length === 0 && (
         <div className="px-4 mt-8 text-center text-gray-400">
-          <FontAwesomeIcon icon={faLink} className="mr-2" />
           No links added yet.
         </div>
       )}
