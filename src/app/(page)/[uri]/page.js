@@ -4,6 +4,28 @@ import { User } from "@/models/User";
 import { Ban } from "@/models/Ban";
 import PublicLinks from "@/components/PublicLinks";
 
+const norm = (s) => (s || "").toString().trim().toLowerCase();
+
+function BannedScreen({ reason }) {
+  return (
+    <div className="min-h-screen bg-[#0b0f14] text-gray-100 flex items-center justify-center p-6">
+      <div className="max-w-xl w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center">
+        <h1 className="text-3xl font-extrabold">This page has been banned</h1>
+        <p className="text-gray-300 mt-3">
+          This profile is not available.
+        </p>
+
+        <div className="mt-6 text-left rounded-xl border border-white/10 bg-black/30 p-4">
+          <div className="text-sm text-gray-400 mb-1">Reason</div>
+          <div className="text-gray-100 font-semibold">
+            {reason || "No reason provided."}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Badge({ children, tone = "blue" }) {
   const base =
     "inline-flex items-center rounded-full px-3 py-1 text-xs font-extrabold border";
@@ -19,22 +41,18 @@ export default async function PageByUri({ params }) {
 
   await mongoose.connect(process.env.MONGO_URI);
 
-  // Block banned profile URIs
-  const uriBan = await Ban.findOne({ type: "uri", identifier: uri.toLowerCase() }).lean();
+  // ✅ Ban by URI/username (before even loading page)
+  const uriBan = await Ban.findOne({
+    type: "uri",
+    identifier: norm(uri),
+  }).lean();
+
   if (uriBan) {
-    return (
-      <div className="min-h-screen bg-[#0b0f14] text-gray-100 flex items-center justify-center p-6">
-        <div className="text-center max-w-lg">
-          <h1 className="text-3xl font-extrabold">This page isn’t available</h1>
-          <p className="text-gray-400 mt-3">
-            This profile has been disabled.
-          </p>
-        </div>
-      </div>
-    );
+    return <BannedScreen reason={uriBan.reason} />;
   }
 
   const page = await Page.findOne({ uri }).lean();
+
   if (!page) {
     return (
       <div className="min-h-screen bg-[#0b0f14] text-gray-100 flex items-center justify-center p-6">
@@ -44,6 +62,19 @@ export default async function PageByUri({ params }) {
         </div>
       </div>
     );
+  }
+
+  // ✅ Ban by owner email (blocks public page too)
+  const ownerEmail = norm(page.owner);
+  if (ownerEmail) {
+    const emailBan = await Ban.findOne({
+      type: "email",
+      identifier: ownerEmail,
+    }).lean();
+
+    if (emailBan) {
+      return <BannedScreen reason={emailBan.reason} />;
+    }
   }
 
   const user = await User.findOne({ email: page.owner }).lean();
@@ -60,7 +91,7 @@ export default async function PageByUri({ params }) {
   const avatar = page.profileImage || user?.image || "/assets/logo.webp";
   const banner = page.bannerImage;
 
-  const who = (page.uri || "").toLowerCase();
+  const who = norm(page.uri);
   const isFounder = who === "ceosolace";
   const isOfficial = who === "biolinkhq";
 
@@ -90,7 +121,6 @@ export default async function PageByUri({ params }) {
             {page.displayName || user?.name || page.uri}
           </h1>
 
-          {/* ✅ badges */}
           {(isFounder || isOfficial) && (
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               {isFounder && <Badge tone="gold">Founder</Badge>}
