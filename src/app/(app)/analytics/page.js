@@ -1,134 +1,101 @@
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import Chart from "@/components/Chart";
-import SectionBox from "@/components/layout/SectionBox";
-import { Event } from "@/models/Event";
-import { Page } from "@/models/Page";
-import { faLink } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { differenceInDays, formatISO9075, isToday } from "date-fns";
-import mongoose from "mongoose";
+import DashboardShell from "@/components/dashboard/DashboardShell";
 import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-export const metadata = {
-  title: "Biolinkhq by theceosolace | Analytics",
-  description:
-    "Share your links, social profiles, contact info and more on one page with Biolinkhq",
-};
+import mongoose from "mongoose";
+import { Page } from "@/models/Page";
+
 export default async function AnalyticsPage() {
-  mongoose.connect(process.env.MONGO_URI);
   const session = await getServerSession(authOptions);
-  if (!session) {
-    return redirect("/");
-  }
-  const page = await Page.findOne({ owner: session.user.email });
-  if (!page) {
-    // Handle the case where the page is not found. This could be a redirect or a simple message.
-    // For example, redirecting back to the homepage or to a dashboard:
-    return redirect("/account");
-    // Or, if you're rendering on the server and sending back HTML:
-    // return {props: {error: "Page not found"}};
-  }
-  const groupedViews = await Event.aggregate([
-    {
-      $match: {
-        type: "view",
-        uri: page.uri,
-      },
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: {
-            date: "$createdAt",
-            format: "%Y-%m-%d",
-          },
-        },
-        count: {
-          $count: {},
-        },
-      },
-    },
-    {
-      $sort: { _id: 1 },
-    },
-  ]);
+  const email = session?.user?.email;
 
-  const clicks = await Event.find({
-    type: "click",
-    page: page.uri,
-  });
+  if (!email) {
+    return (
+      <DashboardShell
+        username=""
+        title="Analytics"
+        subtitle="Sign in to view analytics."
+      >
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <p className="text-gray-300">You must be signed in.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  await mongoose.connect(process.env.MONGO_URI);
+  const page = await Page.findOne({ owner: email }).lean();
+  const username = page?.uri || "";
 
   return (
-    <div>
-      <SectionBox>
-        <h2 className="text-xl mb-6 text-center">Views</h2>
-        <Chart
-          data={groupedViews.map((o) => ({
-            date: o._id,
-            views: o.count,
-          }))}
-        />
-      </SectionBox>
-      <SectionBox>
-        <h2 className="text-xl mb-6 text-center">Clicks</h2>
-        {page.links.map((link) => (
-          <div
-            key={link.title}
-            className="md:flex gap-4 items-center border-t border-gray-200 py-4"
-          >
-            <div className="text-blue-500 pl-4">
-              <FontAwesomeIcon icon={faLink} />
-            </div>
-            <div className="grow">
-              <h3>{link.title || "no title"}</h3>
-              <p className="text-gray-700 text-sm">
-                {link.subtitle || "no description"}
-              </p>
-              <a
-                className="text-xs text-blue-400 hover:underline"
-                target="_blank"
-                href={link.url}
-              >
-                {link.url}
-              </a>
-            </div>
-            <div className="text-center">
-              <div className="border rounded-md p-2 mt-1 md:mt-0">
-                <div className="text-3xl">
-                  {
-                    clicks.filter(
-                      (c) => c.uri === link.url && isToday(c.createdAt)
-                    ).length
-                  }
-                </div>
-                <div className="text-gray-400 text-xs uppercase font-bold">
-                  clicks today
-                </div>
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="border rounded-md p-2 mt-1 md:mt-0">
-                <div className="text-3xl">
-                  {clicks.filter((c) => c.uri === link.url).length}
-                </div>
-                <div className="text-gray-400 text-xs uppercase font-bold">
-                  clicks total
-                </div>
-              </div>
-            </div>
+    <DashboardShell
+      username={username}
+      title="Analytics"
+      subtitle="Track views and clicks to understand what performs best."
+    >
+      <div className="grid md:grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="text-sm text-gray-400">Views</div>
+          <div className="mt-2 text-3xl font-extrabold">—</div>
+          <div className="mt-2 text-xs text-gray-500">
+            Hook this to your click/view collection.
           </div>
-        ))}
-      </SectionBox>
-    </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="text-sm text-gray-400">Clicks</div>
+          <div className="mt-2 text-3xl font-extrabold">—</div>
+          <div className="mt-2 text-xs text-gray-500">
+            Total link taps across your page.
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="text-sm text-gray-400">CTR</div>
+          <div className="mt-2 text-3xl font-extrabold">—%</div>
+          <div className="mt-2 text-xs text-gray-500">
+            Clicks ÷ Views.
+          </div>
+        </div>
+      </div>
+
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-extrabold">Top links</h2>
+          <div className="text-sm text-gray-400">Last 30 days</div>
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-gray-400">
+              <tr className="border-b border-white/10">
+                <th className="text-left py-3 pr-4 font-semibold">Link</th>
+                <th className="text-right py-3 pl-4 font-semibold">Clicks</th>
+              </tr>
+            </thead>
+            <tbody className="text-gray-200">
+              <tr className="border-b border-white/10">
+                <td className="py-3 pr-4">
+                  <div className="font-semibold">—</div>
+                  <div className="text-xs text-gray-500 truncate max-w-[520px]">
+                    —
+                  </div>
+                </td>
+                <td className="py-3 pl-4 text-right font-bold">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <h2 className="text-lg font-extrabold">Coming next</h2>
+        <ul className="mt-3 text-sm text-gray-300 space-y-2">
+          <li>• Views over time graph</li>
+          <li>• Clicks by link</li>
+          <li>• Referrers (where visitors came from)</li>
+        </ul>
+      </section>
+    </DashboardShell>
   );
 }
