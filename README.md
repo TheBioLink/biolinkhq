@@ -3,7 +3,7 @@
 
 &#xa0;
 
-  <img src="./public/banner.png" alt="preview" />
+  <img src="./public/logo.png" alt="preview" />
 
 <a href="https:///">Demo</a>
 
