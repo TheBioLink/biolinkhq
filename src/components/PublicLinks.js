@@ -1,6 +1,5 @@
 "use client";
 
-import { getIconForUrl } from "@/libs/linkIcons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faEnvelope,
@@ -16,31 +15,29 @@ import {
   faTiktok,
   faTwitter,
   faYoutube,
+  faDiscord,
 } from "@fortawesome/free-brands-svg-icons";
+import { getIconForUrl } from "@/libs/linkIcons";
 
-const iconsMap = {
-  email: faEnvelope,
-  phone: faPhone,
-  website: faGlobe,
-  link: faLink,
-  instagram: faInstagram,
-  tiktok: faTiktok,
-  youtube: faYoutube,
-  twitter: faTwitter,
-  facebook: faFacebook,
-  linkedin: faLinkedin,
-  github: faGithub,
+const BUTTON_META = {
+  website: { label: "Website", icon: faGlobe },
+  email: { label: "Email", icon: faEnvelope },
+  phone: { label: "Phone", icon: faPhone },
+  instagram: { label: "Instagram", icon: faInstagram },
+  tiktok: { label: "TikTok", icon: faTiktok },
+  youtube: { label: "YouTube", icon: faYoutube },
+  twitter: { label: "X", icon: faTwitter },
+  facebook: { label: "Facebook", icon: faFacebook },
+  linkedin: { label: "LinkedIn", icon: faLinkedin },
+  github: { label: "GitHub", icon: faGithub },
+  discord: { label: "Discord", icon: faDiscord },
 };
-
-function isLegacyButton(b) {
-  return b && typeof b === "object" && ("key" in b || "value" in b);
-}
 
 function normalizeHref(raw) {
   const v = (raw || "").toString().trim();
   if (!v) return "";
 
-  // Already absolute / special schemes → keep as-is
+  // Already absolute / special schemes
   if (
     v.startsWith("http://") ||
     v.startsWith("https://") ||
@@ -50,10 +47,10 @@ function normalizeHref(raw) {
     return v;
   }
 
-  // Relative path like "/contact" → keep relative (do NOT prepend domain manually)
+  // Relative internal
   if (v.startsWith("/")) return v;
 
-  // If user typed "google.com" without scheme → make it https
+  // Domain without scheme
   return `https://${v}`;
 }
 
@@ -67,27 +64,78 @@ async function trackClick(uri, url) {
   } catch {}
 }
 
-export default function PublicLinks({ uri, buttons = [], links = [] }) {
-  const buttonsArr = Array.isArray(buttons)
-    ? buttons
-    : buttons && typeof buttons === "object"
-    ? Object.entries(buttons)
-        .filter(([, v]) => v)
-        .map(([key, value]) => ({ key, value }))
-    : [];
-
+export default function PublicLinks({ uri, buttons = {}, links = [] }) {
+  // LINKS: array [{title,url}]
   const linksArr = Array.isArray(links) ? links : [];
+
+  // BUTTONS:
+  // - expected schema is object: {instagram:"...", email:"..."}
+  // - also supports array: [{label,url}]
+  const buttonsIsObject =
+    buttons && typeof buttons === "object" && !Array.isArray(buttons);
+  const buttonsIsArray = Array.isArray(buttons);
+
+  const buttonCards = buttonsIsObject
+    ? Object.entries(buttons)
+        .map(([key, value]) => ({ key, value }))
+        .filter((b) => b.value && b.value.toString().trim().length > 0)
+        .map((b) => {
+          const key = b.key || "link";
+          const raw = (b.value || "").toString().trim();
+
+          // build href for special types
+          let href =
+            key === "email"
+              ? `mailto:${raw}`
+              : key === "phone"
+              ? `tel:${raw}`
+              : normalizeHref(raw);
+
+          const meta = BUTTON_META[key] || { label: key, icon: faLink };
+          return { key, href, label: meta.label, icon: meta.icon, raw };
+        })
+        .filter((b) => b.href)
+    : [];
 
   return (
     <>
-      {/* Buttons */}
-      <div className="px-4 mt-6 space-y-3">
-        {buttonsArr.map((b, idx) => {
-          // New style: {label,url}
-          if (b?.label && b?.url && !isLegacyButton(b)) {
+      {/* ✅ BUTTONS AS BIG BUTTONS */}
+      {buttonCards.length > 0 && (
+        <div className="px-4 mt-6 space-y-3">
+          {buttonCards.map((b, idx) => (
+            <a
+              key={`${b.key}-${idx}`}
+              href={b.href}
+              target={b.href.startsWith("/") ? "_self" : "_blank"}
+              rel="noreferrer"
+              onClick={() => trackClick(uri, b.href)}
+              className="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4 shadow-sm hover:bg-white/10 hover:shadow transition"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-black/30 border border-white/10 flex items-center justify-center">
+                  <FontAwesomeIcon icon={b.icon} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-gray-100">{b.label}</span>
+                  <span className="text-sm text-gray-400 truncate max-w-[220px] sm:max-w-[360px]">
+                    {b.key === "email" || b.key === "phone" ? b.raw : b.href}
+                  </span>
+                </div>
+              </div>
+
+              <span className="text-gray-400 text-xl">›</span>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* Optional: if you ever store buttons as array [{label,url}] */}
+      {buttonsIsArray && buttons.length > 0 && (
+        <div className="px-4 mt-6 space-y-3">
+          {buttons.map((b, idx) => {
+            if (!b?.url) return null;
             const href = normalizeHref(b.url);
             if (!href) return null;
-
             const Icon = getIconForUrl(href);
 
             return (
@@ -97,47 +145,24 @@ export default function PublicLinks({ uri, buttons = [], links = [] }) {
                 target={href.startsWith("/") ? "_self" : "_blank"}
                 rel="noreferrer"
                 onClick={() => trackClick(uri, href)}
-                className="w-full flex items-center justify-center gap-2 bg-white/5 border border-white/10 rounded-xl p-4 font-bold shadow-sm hover:shadow transition"
+                className="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4 shadow-sm hover:bg-white/10 hover:shadow transition"
               >
-                <Icon />
-                <span>{b.label}</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-black/30 border border-white/10 flex items-center justify-center">
+                    <Icon />
+                  </div>
+                  <span className="font-bold text-gray-100">
+                    {b.label || b.url}
+                  </span>
+                </div>
+                <span className="text-gray-400 text-xl">›</span>
               </a>
             );
-          }
+          })}
+        </div>
+      )}
 
-          // Legacy style: {key,value}
-          const key = b?.key || "link";
-          const value = b?.value || b?.url || "";
-          if (!value) return null;
-
-          let href =
-            key === "email"
-              ? `mailto:${value}`
-              : key === "phone"
-              ? `tel:${value}`
-              : normalizeHref(value);
-
-          if (!href) return null;
-
-          const icon = iconsMap[key] || faLink;
-
-          return (
-            <a
-              key={idx}
-              href={href}
-              target={href.startsWith("/") ? "_self" : "_blank"}
-              rel="noreferrer"
-              onClick={() => trackClick(uri, href)}
-              className="w-full flex items-center justify-center gap-2 bg-white/5 border border-white/10 rounded-xl p-4 font-bold shadow-sm hover:shadow transition"
-            >
-              <FontAwesomeIcon icon={icon} />
-              <span className="truncate">{value}</span>
-            </a>
-          );
-        })}
-      </div>
-
-      {/* Links */}
+      {/* LINKS LIST */}
       <div className="px-4 mt-8 mb-12 space-y-3">
         {linksArr.map((l, idx) => {
           const href = normalizeHref(l?.url);
@@ -152,13 +177,17 @@ export default function PublicLinks({ uri, buttons = [], links = [] }) {
               target={href.startsWith("/") ? "_self" : "_blank"}
               rel="noreferrer"
               onClick={() => trackClick(uri, href)}
-              className="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4 shadow-sm hover:shadow transition"
+              className="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4 shadow-sm hover:bg-white/10 hover:shadow transition"
             >
               <div className="flex items-center gap-3">
-                <Icon />
-                <span className="font-semibold">{l.title || l.url}</span>
+                <div className="w-10 h-10 rounded-full bg-black/30 border border-white/10 flex items-center justify-center">
+                  <Icon />
+                </div>
+                <span className="font-semibold text-gray-100">
+                  {l.title || l.url}
+                </span>
               </div>
-              <span className="text-gray-400">›</span>
+              <span className="text-gray-400 text-xl">›</span>
             </a>
           );
         })}
