@@ -1,14 +1,13 @@
-import { Lato } from "next/font/google";
 import "../globals.css";
+import { Lato } from "next/font/google";
 
 const lato = Lato({ subsets: ["latin"], weight: ["400", "700"] });
 
 export const metadata = {
-  title: "Biolinkhq by theceosolace",
-  description: "Dashboard",
+  title: "Dashboard | Biolinkhq",
 };
 
-export default function RootLayout({ children }) {
+export default function AppLayout({ children }) {
   return (
     <html lang="en" className="dark">
       <body className={`${lato.className} bg-[#0b0f14] text-gray-100`}>
