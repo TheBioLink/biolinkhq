@@ -47,11 +47,19 @@ const PageSchema = new Schema(
     stripeInterval: { type: String, default: "month" },
 
     stripeTrialEndsAt: { type: Date, default: null },
+    stripeTrialUsed: { type: Boolean, default: false },
+
     stripeCurrentPeriodEnd: { type: Date, default: null },
     stripeCancelAtPeriodEnd: { type: Boolean, default: false },
 
     stripeLastInvoiceId: { type: String, default: "" },
     stripeLastEventType: { type: String, default: "" },
+
+    permanentPlan: {
+      type: String,
+      enum: ["", "exclusive"],
+      default: "",
+    },
   },
   { timestamps: true }
 );
