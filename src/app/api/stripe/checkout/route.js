@@ -8,17 +8,23 @@ const PLANS = {
   basic: {
     key: "basic",
     name: "Basic",
-    amount: 500, // £5.00
+    monthlyAmount: 500,   // £5/month
+    annualAmount: 5000,   // £50/year
+    trialDays: 0,
   },
   premium: {
     key: "premium",
     name: "Premium",
-    amount: 2000, // £20.00
+    monthlyAmount: 2000,  // £20/month
+    annualAmount: 20000,  // £200/year
+    trialDays: 7,
   },
   exclusive: {
     key: "exclusive",
     name: "Exclusive",
-    amount: 10000, // £100.00
+    monthlyAmount: 10000, // £100/month
+    annualAmount: 100000, // £1000/year
+    trialDays: 0,
   },
 };
 
@@ -26,7 +32,7 @@ function getBaseUrl(req) {
   return (
     process.env.NEXTAUTH_URL ||
     req.headers.get("origin") ||
-    "http://biolinkhq.lol"
+    "http://localhost:3000"
   );
 }
 
@@ -40,6 +46,8 @@ export async function POST(req) {
 
     const body = await req.json().catch(() => ({}));
     const planKey = String(body?.plan || "").toLowerCase().trim();
+    const billing = String(body?.billing || "monthly").toLowerCase().trim();
+
     const plan = PLANS[planKey];
 
     if (!plan) {
@@ -49,39 +57,59 @@ export async function POST(req) {
       );
     }
 
+    if (billing !== "monthly" && billing !== "annual") {
+      return NextResponse.json(
+        { error: "Invalid billing. Use monthly or annual." },
+        { status: 400 }
+      );
+    }
+
+    const interval = billing === "annual" ? "year" : "month";
+    const unitAmount =
+      billing === "annual" ? plan.annualAmount : plan.monthlyAmount;
+
     const baseUrl = getBaseUrl(req);
 
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/account?checkout=cancelled`,
+      cancel_url: `${baseUrl}/pricing?checkout=cancelled`,
       customer_email: session.user.email,
       billing_address_collection: "auto",
       allow_promotion_codes: true,
       metadata: {
         email: session.user.email,
         plan: plan.key,
+        billing,
       },
       subscription_data: {
         metadata: {
           email: session.user.email,
           plan: plan.key,
+          billing,
         },
+        ...(plan.key === "premium" && billing === "monthly"
+          ? { trial_period_days: plan.trialDays }
+          : {}),
       },
       line_items: [
         {
           quantity: 1,
           price_data: {
             currency: "gbp",
-            unit_amount: plan.amount,
+            unit_amount: unitAmount,
             recurring: {
-              interval: "month",
+              interval,
             },
             product_data: {
-              name: `BiolinkHQ ${plan.name}`,
-              description: `${plan.name} subscription`,
+              name: `BiolinkHQ ${plan.name} (${billing === "annual" ? "Annual" : "Monthly"})`,
+              description:
+                plan.key === "premium" && billing === "monthly"
+                  ? "Premium subscription with 7-day free trial"
+                  : `${plan.name} subscription`,
               metadata: {
                 plan: plan.key,
+                billing,
               },
             },
           },
