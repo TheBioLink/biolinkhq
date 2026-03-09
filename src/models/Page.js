@@ -10,7 +10,7 @@ const PageSchema = new Schema(
     location: { type: String, default: "" },
     bio: { type: String, default: "" },
 
-    // NEW: Profile + Banner Images
+    // Images
     profileImage: { type: String, default: "" },
     bannerImage: { type: String, default: "" },
 
@@ -19,10 +19,10 @@ const PageSchema = new Schema(
     bgColor: { type: String, default: "#000" },
     bgImage: { type: String, default: "" },
 
-    // Buttons (legacy object structure preserved)
+    // Buttons
     buttons: { type: Object, default: {} },
 
-    // FIXED: Links should be an array, not Object
+    // Links
     links: {
       type: [
         {
@@ -32,6 +32,34 @@ const PageSchema = new Schema(
       ],
       default: [],
     },
+
+    /* ---------------- STRIPE ---------------- */
+
+    stripeCustomerId: { type: String, default: "" },
+
+    stripeSubscriptionId: { type: String, default: "" },
+
+    stripeSubscriptionStatus: { type: String, default: "" },
+
+    stripeCurrentPlan: {
+      type: String,
+      enum: ["free", "basic", "premium", "exclusive"],
+      default: "free",
+    },
+
+    stripeUnitAmount: { type: Number, default: 0 },
+
+    stripeCurrency: { type: String, default: "gbp" },
+
+    stripeInterval: { type: String, default: "month" },
+
+    stripeCurrentPeriodEnd: { type: Date, default: null },
+
+    stripeCancelAtPeriodEnd: { type: Boolean, default: false },
+
+    stripeLastInvoiceId: { type: String, default: "" },
+
+    stripeLastEventType: { type: String, default: "" },
   },
   { timestamps: true }
 );
