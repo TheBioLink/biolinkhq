@@ -15,10 +15,17 @@ function normalizeEmail(email) {
   return String(email || "").toLowerCase().trim();
 }
 
-function getPlanFromAmount(amount) {
+function getPlanFromAmount(amount, interval = "month") {
+  if (interval === "year") {
+    if (amount === 5000) return "basic";
+    if (amount === 20000) return "premium";
+    if (amount === 100000) return "exclusive";
+  }
+
   if (amount === 500) return "basic";
   if (amount === 2000) return "premium";
   if (amount === 10000) return "exclusive";
+
   return "free";
 }
 
@@ -107,6 +114,17 @@ function getPriceFromSubscription(subscriptionObject) {
   return subscriptionObject?.items?.data?.[0]?.price || null;
 }
 
+function getBillingFromSubscription(subscriptionObject) {
+  const metadataBilling =
+    subscriptionObject?.metadata?.billing ||
+    subscriptionObject?.items?.data?.[0]?.price?.product?.metadata?.billing;
+
+  if (metadataBilling) return String(metadataBilling).toLowerCase();
+
+  const interval = subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval;
+  return interval === "year" ? "annual" : "monthly";
+}
+
 function getPlanFromSubscription(subscriptionObject) {
   const metadataPlan =
     subscriptionObject?.metadata?.plan ||
@@ -116,7 +134,8 @@ function getPlanFromSubscription(subscriptionObject) {
   if (metadataPlan) return String(metadataPlan).toLowerCase();
 
   const amount = subscriptionObject?.items?.data?.[0]?.price?.unit_amount;
-  return getPlanFromAmount(amount);
+  const interval = subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
+  return getPlanFromAmount(amount, interval);
 }
 
 export async function POST(req) {
@@ -170,6 +189,9 @@ export async function POST(req) {
             stripeCurrentPlan: String(
               sessionObject?.metadata?.plan || "free"
             ).toLowerCase(),
+            stripeBillingCycle: String(
+              sessionObject?.metadata?.billing || "monthly"
+            ).toLowerCase(),
             stripeLastEventType: event.type,
           };
 
@@ -190,6 +212,7 @@ export async function POST(req) {
         const email = await resolveEmailFromSubscription(subscriptionObject);
         const price = getPriceFromSubscription(subscriptionObject);
         const plan = getPlanFromSubscription(subscriptionObject);
+        const billing = getBillingFromSubscription(subscriptionObject);
 
         const updates = {
           stripeCustomerId: customerId,
@@ -201,10 +224,14 @@ export async function POST(req) {
             subscriptionObject.status === "past_due"
               ? plan
               : "free",
+          stripeBillingCycle: billing,
           stripePriceId: price?.id || null,
           stripeUnitAmount: price?.unit_amount ?? null,
           stripeCurrency: price?.currency || "gbp",
           stripeInterval: price?.recurring?.interval || "month",
+          stripeTrialEndsAt: subscriptionObject.trial_end
+            ? new Date(subscriptionObject.trial_end * 1000)
+            : null,
           stripeCurrentPeriodEnd: subscriptionObject.current_period_end
             ? new Date(subscriptionObject.current_period_end * 1000)
             : null,
@@ -231,8 +258,10 @@ export async function POST(req) {
           stripeSubscriptionId: subscriptionObject.id,
           stripeSubscriptionStatus: "canceled",
           stripeCurrentPlan: "free",
+          stripeBillingCycle: "",
           stripeCancelAtPeriodEnd: false,
           stripeCurrentPeriodEnd: null,
+          stripeTrialEndsAt: null,
           stripeLastEventType: event.type,
         };
 
@@ -250,15 +279,22 @@ export async function POST(req) {
         const customerId = getCustomerIdFromObject(invoiceObject);
         const email = await resolveEmailFromInvoice(invoiceObject);
 
-        const amount = invoiceObject?.lines?.data?.[0]?.price?.unit_amount;
+        const linePrice = invoiceObject?.lines?.data?.[0]?.price || null;
+        const amount = linePrice?.unit_amount;
+        const interval = linePrice?.recurring?.interval || "month";
         const plan =
           invoiceObject?.parent?.subscription_details?.metadata?.plan ||
-          getPlanFromAmount(amount);
+          getPlanFromAmount(amount, interval);
+
+        const billing =
+          invoiceObject?.parent?.subscription_details?.metadata?.billing ||
+          (interval === "year" ? "annual" : "monthly");
 
         const updates = {
           stripeCustomerId: customerId,
           stripeSubscriptionStatus: "active",
           stripeCurrentPlan: plan,
+          stripeBillingCycle: billing,
           stripeLastInvoiceId: invoiceObject.id,
           stripeLastEventType: event.type,
         };
