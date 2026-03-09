@@ -1,14 +1,14 @@
 // src/libs/stripe.js
 import Stripe from "stripe";
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const secretKey = process.env.STRIPE_SECRET_KEY;
 
-if (!stripeSecretKey) {
+if (!secretKey) {
   throw new Error("Missing STRIPE_SECRET_KEY");
 }
 
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2024-09-30.acacia",
+const stripe = new Stripe(secretKey, {
+  apiVersion: "2025-01-27.acacia",
 });
 
 export default stripe;
