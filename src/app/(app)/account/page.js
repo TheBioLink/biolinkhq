@@ -9,20 +9,32 @@ import PremiumTab from "@/components/dashboard/PremiumTab";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import mongoose from "mongoose";
 import { Page } from "@/models/Page";
+import {
+  connectDb,
+  normalizeEmail,
+  syncSubscriptionToPageBySessionId,
+} from "@/libs/stripe-subscriptions";
 
-function normalizeEmail(email) {
-  return String(email || "").toLowerCase().trim();
-}
-
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }) {
   const session = await getServerSession(authOptions);
   const email = normalizeEmail(session?.user?.email);
 
   if (!email) return null;
 
-  await mongoose.connect(process.env.MONGO_URI);
+  await connectDb();
+
+  const checkoutState = String(searchParams?.checkout || "");
+  const sessionId = String(searchParams?.session_id || "");
+
+  if (checkoutState === "success" && sessionId) {
+    try {
+      await syncSubscriptionToPageBySessionId(sessionId, email);
+    } catch (error) {
+      console.error("Stripe post-checkout sync failed:", error);
+    }
+  }
+
   const page = await Page.findOne({ owner: email }).lean();
   const username = page?.uri || "";
   const isFounderAdmin = email === "mrrunknown44@gmail.com";
