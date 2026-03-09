@@ -104,6 +104,42 @@ export function buildFreeState(extra = {}) {
   };
 }
 
+export async function ensurePermanentExclusiveForPage(pageOrEmail) {
+  await connectDb();
+
+  let page = null;
+
+  if (typeof pageOrEmail === "string") {
+    page = await Page.findOne({ owner: normalizeEmail(pageOrEmail) });
+  } else {
+    page = pageOrEmail;
+  }
+
+  if (!page) return null;
+
+  const isItsNic =
+    String(page?.uri || "").toLowerCase() === "itsnicbtw";
+
+  if (!isItsNic) return page;
+
+  return Page.findOneAndUpdate(
+    { _id: page._id },
+    {
+      $set: {
+        permanentPlan: "exclusive",
+        stripeCurrentPlan: "exclusive",
+        stripeSubscriptionStatus: "active",
+        stripeBillingCycle: "lifetime",
+        stripeUnitAmount: 0,
+        stripeCurrency: "gbp",
+        stripeInterval: "lifetime",
+        stripeCancelAtPeriodEnd: false,
+      },
+    },
+    { new: true }
+  );
+}
+
 export async function syncSubscriptionToPageBySessionId(sessionId, expectedEmail = "") {
   if (!sessionId) return null;
 
@@ -131,9 +167,13 @@ export async function syncSubscriptionToPageBySessionId(sessionId, expectedEmail
     return applyUpdates(email, customerId, {
       stripeCustomerId: customerId,
       stripeCheckoutSessionId: session.id,
-      stripeSubscriptionStatus: session.payment_status === "paid" ? "active" : "trialing",
+      stripeSubscriptionStatus:
+        session.payment_status === "paid" ? "active" : "trialing",
       stripeCurrentPlan: String(session?.metadata?.plan || "free").toLowerCase(),
       stripeBillingCycle: String(session?.metadata?.billing || "monthly").toLowerCase(),
+      stripeTrialUsed:
+        String(session?.metadata?.plan || "").toLowerCase() === "premium" &&
+        String(session?.metadata?.billing || "").toLowerCase() === "monthly",
       stripeLastEventType: "checkout.session.completed",
     });
   }
@@ -173,6 +213,8 @@ export async function syncSubscriptionToPageBySessionId(sessionId, expectedEmail
     stripeTrialEndsAt: subscription?.trial_end
       ? new Date(subscription.trial_end * 1000)
       : null,
+    stripeTrialUsed:
+      plan === "premium" && billing === "monthly" ? true : undefined,
     stripeCurrentPeriodEnd: subscription?.current_period_end
       ? new Date(subscription.current_period_end * 1000)
       : null,
