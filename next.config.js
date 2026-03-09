@@ -1,15 +1,10 @@
+// next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    // Render + proxy breaks Server Actions host validation
-    serverActions: false,
-  },
-
-  images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "*.googleusercontent.com" },
-      { protocol: "https", hostname: "linktree13.s3.amazonaws.com" },
-    ],
+  env: {
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
   },
 };
 
