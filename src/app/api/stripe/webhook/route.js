@@ -4,6 +4,7 @@ import stripe from "@/libs/stripe";
 import {
   applyUpdates,
   buildFreeState,
+  ensurePermanentExclusiveForPage,
   getBillingFromInterval,
   getCustomerEmail,
   getCustomerIdFromObject,
@@ -112,7 +113,7 @@ export async function POST(req) {
         const customerId = getCustomerIdFromObject(sessionObject);
 
         if (sessionObject.mode === "subscription") {
-          await applyUpdates(email, customerId, {
+          const updated = await applyUpdates(email, customerId, {
             stripeCustomerId: customerId || "",
             stripeCheckoutSessionId: sessionObject.id || "",
             stripeSubscriptionId:
@@ -121,10 +122,18 @@ export async function POST(req) {
                 : sessionObject.subscription?.id || "",
             stripeSubscriptionStatus:
               sessionObject.payment_status === "paid" ? "active" : "trialing",
-            stripeCurrentPlan: String(sessionObject?.metadata?.plan || "free").toLowerCase(),
-            stripeBillingCycle: String(sessionObject?.metadata?.billing || "monthly").toLowerCase(),
+            stripeCurrentPlan: String(
+              sessionObject?.metadata?.plan || "free"
+            ).toLowerCase(),
+            stripeBillingCycle: String(
+              sessionObject?.metadata?.billing || "monthly"
+            ).toLowerCase(),
+            stripeTrialUsed:
+              String(sessionObject?.metadata?.isTrial || "false") === "true",
             stripeLastEventType: event.type,
           });
+
+          await ensurePermanentExclusiveForPage(updated || email);
         }
 
         break;
@@ -138,8 +147,11 @@ export async function POST(req) {
         const price = getPriceFromSubscription(subscriptionObject);
         const plan = getPlanFromSubscription(subscriptionObject);
         const billing = getBillingFromSubscription(subscriptionObject);
+        const isTrial =
+          String(subscriptionObject?.metadata?.isTrial || "false") === "true" ||
+          subscriptionObject?.status === "trialing";
 
-        await applyUpdates(email, customerId, {
+        const updated = await applyUpdates(email, customerId, {
           stripeCustomerId: customerId || "",
           stripeSubscriptionId: subscriptionObject.id || "",
           stripeSubscriptionStatus: subscriptionObject.status || "",
@@ -155,12 +167,15 @@ export async function POST(req) {
           stripeTrialEndsAt: subscriptionObject.trial_end
             ? new Date(subscriptionObject.trial_end * 1000)
             : null,
+          stripeTrialUsed: isTrial ? true : undefined,
           stripeCurrentPeriodEnd: subscriptionObject.current_period_end
             ? new Date(subscriptionObject.current_period_end * 1000)
             : null,
           stripeCancelAtPeriodEnd: !!subscriptionObject.cancel_at_period_end,
           stripeLastEventType: event.type,
         });
+
+        await ensurePermanentExclusiveForPage(updated || email);
 
         break;
       }
@@ -170,15 +185,18 @@ export async function POST(req) {
         const customerId = getCustomerIdFromObject(subscriptionObject);
         const email = await resolveEmailFromSubscription(subscriptionObject);
 
-        await applyUpdates(
+        const updated = await applyUpdates(
           email,
           customerId,
           buildFreeState({
             stripeCustomerId: customerId || "",
             stripeSubscriptionId: subscriptionObject.id || "",
+            stripeTrialUsed: true,
             stripeLastEventType: event.type,
           })
         );
+
+        await ensurePermanentExclusiveForPage(updated || email);
 
         break;
       }
@@ -192,13 +210,15 @@ export async function POST(req) {
         const amount = linePrice?.unit_amount ?? 0;
         const interval = linePrice?.recurring?.interval || "month";
         const plan =
-          String(invoiceObject?.parent?.subscription_details?.metadata?.plan || "").toLowerCase() ||
-          getPlanFromAmount(amount, interval);
+          String(
+            invoiceObject?.parent?.subscription_details?.metadata?.plan || ""
+          ).toLowerCase() || getPlanFromAmount(amount, interval);
         const billing =
-          String(invoiceObject?.parent?.subscription_details?.metadata?.billing || "").toLowerCase() ||
-          getBillingFromInterval(interval);
+          String(
+            invoiceObject?.parent?.subscription_details?.metadata?.billing || ""
+          ).toLowerCase() || getBillingFromInterval(interval);
 
-        await applyUpdates(email, customerId, {
+        const updated = await applyUpdates(email, customerId, {
           stripeCustomerId: customerId || "",
           stripeSubscriptionStatus: "active",
           stripeCurrentPlan: plan,
@@ -206,6 +226,8 @@ export async function POST(req) {
           stripeLastInvoiceId: invoiceObject.id || "",
           stripeLastEventType: event.type,
         });
+
+        await ensurePermanentExclusiveForPage(updated || email);
 
         break;
       }
@@ -220,12 +242,13 @@ export async function POST(req) {
           billingReason === "subscription_cycle" ||
           billingReason === "subscription_create";
 
-        await applyUpdates(
+        const updated = await applyUpdates(
           email,
           customerId,
           shouldDowngrade
             ? buildFreeState({
                 stripeCustomerId: customerId || "",
+                stripeTrialUsed: true,
                 stripeLastInvoiceId: invoiceObject.id || "",
                 stripeLastEventType: event.type,
               })
@@ -236,6 +259,8 @@ export async function POST(req) {
                 stripeLastEventType: event.type,
               }
         );
+
+        await ensurePermanentExclusiveForPage(updated || email);
 
         break;
       }
