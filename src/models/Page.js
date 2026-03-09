@@ -1,3 +1,4 @@
+// src/models/Page.js
 import { model, models, Schema } from "mongoose";
 
 const PageSchema = new Schema(
@@ -5,24 +6,19 @@ const PageSchema = new Schema(
     uri: { type: String, required: true, min: 1, unique: true },
     owner: { type: String, required: true },
 
-    // Profile info
     displayName: { type: String, default: "" },
     location: { type: String, default: "" },
     bio: { type: String, default: "" },
 
-    // Images
     profileImage: { type: String, default: "" },
     bannerImage: { type: String, default: "" },
 
-    // Background
-    bgType: { type: String, default: "color" }, // 'color' | 'image'
+    bgType: { type: String, default: "color" },
     bgColor: { type: String, default: "#000" },
     bgImage: { type: String, default: "" },
 
-    // Buttons
     buttons: { type: Object, default: {} },
 
-    // Links
     links: {
       type: [
         {
@@ -33,12 +29,9 @@ const PageSchema = new Schema(
       default: [],
     },
 
-    /* ---------------- STRIPE ---------------- */
-
     stripeCustomerId: { type: String, default: "" },
-
+    stripeCheckoutSessionId: { type: String, default: "" },
     stripeSubscriptionId: { type: String, default: "" },
-
     stripeSubscriptionStatus: { type: String, default: "" },
 
     stripeCurrentPlan: {
@@ -47,18 +40,17 @@ const PageSchema = new Schema(
       default: "free",
     },
 
+    stripeBillingCycle: { type: String, default: "" },
+    stripePriceId: { type: String, default: "" },
     stripeUnitAmount: { type: Number, default: 0 },
-
     stripeCurrency: { type: String, default: "gbp" },
-
     stripeInterval: { type: String, default: "month" },
 
+    stripeTrialEndsAt: { type: Date, default: null },
     stripeCurrentPeriodEnd: { type: Date, default: null },
-
     stripeCancelAtPeriodEnd: { type: Boolean, default: false },
 
     stripeLastInvoiceId: { type: String, default: "" },
-
     stripeLastEventType: { type: String, default: "" },
   },
   { timestamps: true }
