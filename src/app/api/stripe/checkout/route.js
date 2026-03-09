@@ -26,7 +26,7 @@ function getBaseUrl(req) {
   return (
     process.env.NEXTAUTH_URL ||
     req.headers.get("origin") ||
-    "http://localhost:3000"
+    "http://biolinkhq.lol"
   );
 }
 
