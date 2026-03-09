@@ -29,6 +29,12 @@ function getPlanFromAmount(amount, interval = "month") {
   return "free";
 }
 
+function getCustomerIdFromObject(object) {
+  return typeof object?.customer === "string"
+    ? object.customer
+    : object?.customer?.id || null;
+}
+
 async function getCustomerEmail(customerId) {
   if (!customerId) return "";
 
@@ -81,11 +87,7 @@ async function resolveEmailFromInvoice(invoiceObject) {
 
   if (direct) return normalizeEmail(direct);
 
-  const customerId =
-    typeof invoiceObject?.customer === "string"
-      ? invoiceObject.customer
-      : invoiceObject?.customer?.id;
-
+  const customerId = getCustomerIdFromObject(invoiceObject);
   return getCustomerEmail(customerId);
 }
 
@@ -96,18 +98,8 @@ async function resolveEmailFromSubscription(subscriptionObject) {
 
   if (direct) return normalizeEmail(direct);
 
-  const customerId =
-    typeof subscriptionObject?.customer === "string"
-      ? subscriptionObject.customer
-      : subscriptionObject?.customer?.id;
-
+  const customerId = getCustomerIdFromObject(subscriptionObject);
   return getCustomerEmail(customerId);
-}
-
-function getCustomerIdFromObject(object) {
-  return typeof object?.customer === "string"
-    ? object.customer
-    : object?.customer?.id || null;
 }
 
 function getPriceFromSubscription(subscriptionObject) {
@@ -121,7 +113,9 @@ function getBillingFromSubscription(subscriptionObject) {
 
   if (metadataBilling) return String(metadataBilling).toLowerCase();
 
-  const interval = subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval;
+  const interval =
+    subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
+
   return interval === "year" ? "annual" : "monthly";
 }
 
@@ -134,8 +128,18 @@ function getPlanFromSubscription(subscriptionObject) {
   if (metadataPlan) return String(metadataPlan).toLowerCase();
 
   const amount = subscriptionObject?.items?.data?.[0]?.price?.unit_amount;
-  const interval = subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
+  const interval =
+    subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
+
   return getPlanFromAmount(amount, interval);
+}
+
+async function applyUpdates(email, customerId, updates) {
+  const updated = await updatePageByEmail(email, updates);
+
+  if (!updated && customerId) {
+    await updatePageByCustomerId(customerId, updates);
+  }
 }
 
 export async function POST(req) {
@@ -178,28 +182,21 @@ export async function POST(req) {
         const customerId = getCustomerIdFromObject(sessionObject);
 
         if (sessionObject.mode === "subscription") {
-          const updates = {
-            stripeCustomerId: customerId,
-            stripeCheckoutSessionId: sessionObject.id,
+          await applyUpdates(email, customerId, {
+            stripeCustomerId: customerId || "",
+            stripeCheckoutSessionId: sessionObject.id || "",
             stripeSubscriptionId:
               typeof sessionObject.subscription === "string"
                 ? sessionObject.subscription
-                : sessionObject.subscription?.id || null,
-            stripeSubscriptionStatus: "active",
-            stripeCurrentPlan: String(
-              sessionObject?.metadata?.plan || "free"
-            ).toLowerCase(),
+                : sessionObject.subscription?.id || "",
+            stripeSubscriptionStatus:
+              sessionObject.payment_status === "paid" ? "active" : "trialing",
+            stripeCurrentPlan: String(sessionObject?.metadata?.plan || "free").toLowerCase(),
             stripeBillingCycle: String(
               sessionObject?.metadata?.billing || "monthly"
             ).toLowerCase(),
             stripeLastEventType: event.type,
-          };
-
-          const updated = await updatePageByEmail(email, updates);
-
-          if (!updated && customerId) {
-            await updatePageByCustomerId(customerId, updates);
-          }
+          });
         }
 
         break;
@@ -214,19 +211,17 @@ export async function POST(req) {
         const plan = getPlanFromSubscription(subscriptionObject);
         const billing = getBillingFromSubscription(subscriptionObject);
 
-        const updates = {
-          stripeCustomerId: customerId,
-          stripeSubscriptionId: subscriptionObject.id,
-          stripeSubscriptionStatus: subscriptionObject.status || null,
+        await applyUpdates(email, customerId, {
+          stripeCustomerId: customerId || "",
+          stripeSubscriptionId: subscriptionObject.id || "",
+          stripeSubscriptionStatus: subscriptionObject.status || "",
           stripeCurrentPlan:
-            subscriptionObject.status === "active" ||
-            subscriptionObject.status === "trialing" ||
-            subscriptionObject.status === "past_due"
+            ["active", "trialing", "past_due"].includes(subscriptionObject.status)
               ? plan
               : "free",
           stripeBillingCycle: billing,
-          stripePriceId: price?.id || null,
-          stripeUnitAmount: price?.unit_amount ?? null,
+          stripePriceId: price?.id || "",
+          stripeUnitAmount: price?.unit_amount ?? 0,
           stripeCurrency: price?.currency || "gbp",
           stripeInterval: price?.recurring?.interval || "month",
           stripeTrialEndsAt: subscriptionObject.trial_end
@@ -237,13 +232,7 @@ export async function POST(req) {
             : null,
           stripeCancelAtPeriodEnd: !!subscriptionObject.cancel_at_period_end,
           stripeLastEventType: event.type,
-        };
-
-        const updated = await updatePageByEmail(email, updates);
-
-        if (!updated && customerId) {
-          await updatePageByCustomerId(customerId, updates);
-        }
+        });
 
         break;
       }
@@ -253,23 +242,21 @@ export async function POST(req) {
         const customerId = getCustomerIdFromObject(subscriptionObject);
         const email = await resolveEmailFromSubscription(subscriptionObject);
 
-        const updates = {
-          stripeCustomerId: customerId,
-          stripeSubscriptionId: subscriptionObject.id,
+        await applyUpdates(email, customerId, {
+          stripeCustomerId: customerId || "",
+          stripeSubscriptionId: subscriptionObject.id || "",
           stripeSubscriptionStatus: "canceled",
           stripeCurrentPlan: "free",
           stripeBillingCycle: "",
+          stripePriceId: "",
+          stripeUnitAmount: 0,
+          stripeCurrency: "gbp",
+          stripeInterval: "month",
           stripeCancelAtPeriodEnd: false,
           stripeCurrentPeriodEnd: null,
           stripeTrialEndsAt: null,
           stripeLastEventType: event.type,
-        };
-
-        const updated = await updatePageByEmail(email, updates);
-
-        if (!updated && customerId) {
-          await updatePageByCustomerId(customerId, updates);
-        }
+        });
 
         break;
       }
@@ -278,32 +265,24 @@ export async function POST(req) {
         const invoiceObject = event.data.object;
         const customerId = getCustomerIdFromObject(invoiceObject);
         const email = await resolveEmailFromInvoice(invoiceObject);
-
         const linePrice = invoiceObject?.lines?.data?.[0]?.price || null;
         const amount = linePrice?.unit_amount;
         const interval = linePrice?.recurring?.interval || "month";
         const plan =
           invoiceObject?.parent?.subscription_details?.metadata?.plan ||
           getPlanFromAmount(amount, interval);
-
         const billing =
           invoiceObject?.parent?.subscription_details?.metadata?.billing ||
           (interval === "year" ? "annual" : "monthly");
 
-        const updates = {
-          stripeCustomerId: customerId,
+        await applyUpdates(email, customerId, {
+          stripeCustomerId: customerId || "",
           stripeSubscriptionStatus: "active",
           stripeCurrentPlan: plan,
           stripeBillingCycle: billing,
-          stripeLastInvoiceId: invoiceObject.id,
+          stripeLastInvoiceId: invoiceObject.id || "",
           stripeLastEventType: event.type,
-        };
-
-        const updated = await updatePageByEmail(email, updates);
-
-        if (!updated && customerId) {
-          await updatePageByCustomerId(customerId, updates);
-        }
+        });
 
         break;
       }
@@ -313,18 +292,12 @@ export async function POST(req) {
         const customerId = getCustomerIdFromObject(invoiceObject);
         const email = await resolveEmailFromInvoice(invoiceObject);
 
-        const updates = {
-          stripeCustomerId: customerId,
+        await applyUpdates(email, customerId, {
+          stripeCustomerId: customerId || "",
           stripeSubscriptionStatus: "past_due",
-          stripeLastInvoiceId: invoiceObject.id,
+          stripeLastInvoiceId: invoiceObject.id || "",
           stripeLastEventType: event.type,
-        };
-
-        const updated = await updatePageByEmail(email, updates);
-
-        if (!updated && customerId) {
-          await updatePageByCustomerId(customerId, updates);
-        }
+        });
 
         break;
       }
