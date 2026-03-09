@@ -5,6 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import stripe from "@/libs/stripe";
 import {
   connectDb,
+  ensurePermanentExclusiveForPage,
   findPageByOwner,
   normalizeEmail,
 } from "@/libs/stripe-subscriptions";
@@ -72,18 +73,27 @@ export async function POST(req) {
 
     await connectDb();
 
-    const existingPage = await findPageByOwner(email);
+    let page = await findPageByOwner(email);
 
-    if (!existingPage) {
+    if (!page) {
       return NextResponse.json(
         { error: "No page found for this account" },
         { status: 404 }
       );
     }
 
+    page = await ensurePermanentExclusiveForPage(page);
+
+    if (page?.permanentPlan === "exclusive") {
+      return NextResponse.json(
+        { error: "This account already has permanent Exclusive access." },
+        { status: 400 }
+      );
+    }
+
     if (
       ["active", "trialing", "past_due"].includes(
-        String(existingPage?.stripeSubscriptionStatus || "").toLowerCase()
+        String(page?.stripeSubscriptionStatus || "").toLowerCase()
       )
     ) {
       return NextResponse.json(
@@ -95,6 +105,13 @@ export async function POST(req) {
     const interval = billing === "annual" ? "year" : "month";
     const unitAmount =
       billing === "annual" ? plan.annualAmount : plan.monthlyAmount;
+
+    const trialDays =
+      plan.key === "premium" &&
+      billing === "monthly" &&
+      !page?.stripeTrialUsed
+        ? plan.trialDays
+        : 0;
 
     const baseUrl = getBaseUrl(req);
 
@@ -109,16 +126,22 @@ export async function POST(req) {
         email,
         plan: plan.key,
         billing,
+        isTrial:
+          trialDays > 0 && plan.key === "premium" && billing === "monthly"
+            ? "true"
+            : "false",
       },
       subscription_data: {
         metadata: {
           email,
           plan: plan.key,
           billing,
+          isTrial:
+            trialDays > 0 && plan.key === "premium" && billing === "monthly"
+              ? "true"
+              : "false",
         },
-        ...(plan.key === "premium" && billing === "monthly"
-          ? { trial_period_days: plan.trialDays }
-          : {}),
+        ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
       },
       line_items: [
         {
@@ -130,7 +153,7 @@ export async function POST(req) {
             product_data: {
               name: `BiolinkHQ ${plan.name} ${billing === "annual" ? "Annual" : "Monthly"}`,
               description:
-                plan.key === "premium" && billing === "monthly"
+                trialDays > 0
                   ? "Premium monthly subscription with a 7-day free trial"
                   : `${plan.name} ${billing} subscription`,
               metadata: {
