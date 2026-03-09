@@ -180,12 +180,6 @@ export default function PricingClient() {
             </button>
           </div>
 
-          {billing === "annual" && (
-            <div className="mt-3 text-sm text-emerald-300">
-              Annual billing enabled
-            </div>
-          )}
-
           {billing === "monthly" && (
             <div className="mt-3 text-sm text-blue-300">
               Premium includes a 7-day free trial
@@ -257,7 +251,9 @@ export default function PricingClient() {
                       disabled={loading !== null}
                       className={`inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${plan.button}`}
                     >
-                      {isLoading ? "Loading..." : `${plan.cta} ${billing === "annual" ? "Yearly" : "Monthly"}`}
+                      {isLoading
+                        ? "Loading..."
+                        : `${plan.cta} ${billing === "annual" ? "Yearly" : "Monthly"}`}
                     </button>
                   )}
                 </div>
