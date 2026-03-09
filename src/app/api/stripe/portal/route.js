@@ -2,15 +2,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import mongoose from "mongoose";
 import stripe from "@/libs/stripe";
+import { connectDb, normalizeEmail } from "@/libs/stripe-subscriptions";
 import { Page } from "@/models/Page";
 
 export const runtime = "nodejs";
-
-function normalizeEmail(email) {
-  return String(email || "").toLowerCase().trim();
-}
 
 export async function POST(req) {
   try {
@@ -20,7 +16,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await mongoose.connect(process.env.MONGO_URI);
+    await connectDb();
 
     const page = await Page.findOne({
       owner: normalizeEmail(session.user.email),
