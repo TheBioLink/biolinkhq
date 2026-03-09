@@ -7,6 +7,7 @@ import GridContainer from "@/components/GridContainer";
 import Link from "next/link";
 import ImageGrid from "@/components/ImageGrid";
 import NewOwnershipPopup from "@/components/NewOwnershipPopup";
+import TrustpilotReviewCollector from "@/components/TrustpilotReviewCollector";
 
 const imageUrls = [
   "/assets/polly.png",
@@ -26,10 +27,10 @@ export default async function Home() {
     <main>
       <NewOwnershipPopup />
 
-      <section className="pt-32 flex flex-wrap md:flex-nowrap justify-center items-center">
-        <div className="max-w-6xl mb-8 md:mb-0 md:mr-8">
+      <section className="flex flex-wrap items-center justify-center pt-32 md:flex-nowrap">
+        <div className="mb-8 max-w-6xl md:mb-0 md:mr-8">
           <h1 className="text-6xl font-bold">Everything in one</h1>
-          <h2 className="text-gray-500 text-xl mt-6 mb-4">
+          <h2 className="mb-4 mt-6 text-xl text-gray-500">
             Share your links, social media profiles, contact info and more on
             one page
           </h2>
@@ -39,7 +40,7 @@ export default async function Home() {
         <Carousel images={imageUrls} />
       </section>
 
-      <div className="mt-20 text-center max-w-5xl">
+      <div className="mt-20 max-w-5xl text-center">
         <h1 className="mb-5 text-5xl font-bold">
           You never have to change the link in your bio again
         </h1>
@@ -55,7 +56,7 @@ export default async function Home() {
 
       <GridContainer />
 
-      <div className="mt-20 text-center max-w-5xl">
+      <div className="mt-20 max-w-5xl text-center">
         <h1 className="mb-5 text-5xl font-bold">
           Turn your Link In Bio into your own mini-website
         </h1>
@@ -74,6 +75,8 @@ export default async function Home() {
           Start now
         </Link>
       </div>
+
+      <TrustpilotReviewCollector />
 
       <ImageGrid images={imageUrls} />
     </main>
