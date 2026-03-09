@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   faCheck,
   faCopy,
@@ -28,8 +29,10 @@ export default function ProfileShareButton({
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mountedUrl, setMountedUrl] = useState("");
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     setMountedUrl(getSafeUrl(url));
   }, [url]);
 
@@ -82,6 +85,110 @@ export default function ProfileShareButton({
     } catch {}
   }
 
+  const modal = open ? (
+    <div className="fixed inset-0 z-[9999]">
+      <button
+        type="button"
+        aria-label="Close share modal"
+        onClick={() => setOpen(false)}
+        className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
+      />
+
+      <div className="absolute inset-0 overflow-y-auto">
+        <div className="flex min-h-screen items-center justify-center p-4 sm:p-6">
+          <div className="relative my-6 w-full max-w-[510px] rounded-[26px] border border-[#1d2b63] bg-[#071233] shadow-[0_20px_80px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center justify-between border-b border-white/8 px-5 py-5">
+              <h3 className="text-xl font-extrabold text-white">
+                Share Profile
+              </h3>
+
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
+              >
+                <FontAwesomeIcon icon={faTimes} className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-5 px-5 py-5">
+              <div className="rounded-2xl border border-[#3048bf] bg-[#030816] p-4 shadow-inner">
+                <div className="flex items-start gap-3">
+                  <img
+                    src={avatar || "/assets/logo.webp"}
+                    alt={displayName || username || "Profile avatar"}
+                    className="h-12 w-12 rounded-full border border-white/10 object-cover"
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-base font-extrabold text-white">
+                      {displayName || username || "Profile"}
+                    </div>
+
+                    {!!username && (
+                      <div className="truncate text-sm text-white/55">
+                        @{username}
+                      </div>
+                    )}
+
+                    {!!bio && (
+                      <p className="mt-2 break-words text-sm text-white/80">
+                        {bio}
+                      </p>
+                    )}
+
+                    <div className="mt-3 break-all text-xs text-white/40">
+                      {mountedUrl}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-3 text-sm font-bold text-white/90">
+                  Share externally
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={copyLink}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-[#08163d] px-4 py-4 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-[#0a1b4a]"
+                  >
+                    <FontAwesomeIcon
+                      icon={copied ? faCheck : faCopy}
+                      className="h-4 w-4"
+                    />
+                    {copied ? "Copied" : "Copy Link"}
+                  </button>
+
+                  <a
+                    href={tweetHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-[#08163d] px-4 py-4 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-[#0a1b4a]"
+                  >
+                    <FontAwesomeIcon icon={faTwitter} className="h-4 w-4" />
+                    Share on X
+                  </a>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={nativeShare}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#1d3ea6] bg-[#0b1f58] px-4 py-4 text-sm font-semibold text-white transition hover:bg-[#102769]"
+                >
+                  <FontAwesomeIcon icon={faPaperPlane} className="h-4 w-4" />
+                  Share Profile
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <button
@@ -93,109 +200,7 @@ export default function ProfileShareButton({
         Share
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[100]">
-          <button
-            type="button"
-            aria-label="Close share modal"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
-          />
-
-          <div className="absolute inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-start justify-center px-4 py-6 sm:items-center sm:p-6">
-              <div className="relative w-full max-w-[510px] overflow-hidden rounded-[26px] border border-[#1d2b63] bg-[#071233] shadow-[0_20px_80px_rgba(0,0,0,0.6)]">
-                <div className="flex items-center justify-between border-b border-white/8 px-5 py-5">
-                  <h3 className="text-xl font-extrabold text-white">
-                    Share Profile
-                  </h3>
-
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <FontAwesomeIcon icon={faTimes} className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-5 px-5 py-5">
-                  <div className="rounded-2xl border border-[#3048bf] bg-[#030816] p-4 shadow-inner">
-                    <div className="flex items-start gap-3">
-                      <img
-                        src={avatar || "/assets/logo.webp"}
-                        alt={displayName || username || "Profile avatar"}
-                        className="h-12 w-12 rounded-full border border-white/10 object-cover"
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-base font-extrabold text-white">
-                          {displayName || username || "Profile"}
-                        </div>
-
-                        {!!username && (
-                          <div className="truncate text-sm text-white/55">
-                            @{username}
-                          </div>
-                        )}
-
-                        {!!bio && (
-                          <p className="mt-2 break-words text-sm text-white/80">
-                            {bio}
-                          </p>
-                        )}
-
-                        <div className="mt-3 break-all text-xs text-white/40">
-                          {mountedUrl}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-3 text-sm font-bold text-white/90">
-                      Share externally
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={copyLink}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-[#08163d] px-4 py-4 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-[#0a1b4a]"
-                      >
-                        <FontAwesomeIcon
-                          icon={copied ? faCheck : faCopy}
-                          className="h-4 w-4"
-                        />
-                        {copied ? "Copied" : "Copy Link"}
-                      </button>
-
-                      <a
-                        href={tweetHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-[#08163d] px-4 py-4 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-[#0a1b4a]"
-                      >
-                        <FontAwesomeIcon icon={faTwitter} className="h-4 w-4" />
-                        Share on X
-                      </a>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={nativeShare}
-                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#1d3ea6] bg-[#0b1f58] px-4 py-4 text-sm font-semibold text-white transition hover:bg-[#102769]"
-                    >
-                      <FontAwesomeIcon icon={faPaperPlane} className="h-4 w-4" />
-                      Share Profile
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {isMounted ? createPortal(modal, document.body) : null}
     </>
   );
 }
