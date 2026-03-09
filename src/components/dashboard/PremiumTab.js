@@ -7,6 +7,10 @@ function formatMoney(amount, currency = "gbp", billingCycle = "monthly") {
   const value = typeof amount === "number" ? amount / 100 : 0;
   const suffix = billingCycle === "annual" ? "/year" : "/month";
 
+  if (billingCycle === "lifetime") {
+    return "Included";
+  }
+
   try {
     return `${new Intl.NumberFormat("en-GB", {
       style: "currency",
@@ -44,6 +48,7 @@ function tone(status) {
 
 export default function PremiumTab({ page }) {
   const [loading, setLoading] = useState(false);
+  const isPermanent = page?.permanentPlan === "exclusive";
 
   async function openBillingPortal() {
     try {
@@ -99,7 +104,9 @@ export default function PremiumTab({ page }) {
             Plan
           </div>
           <div className="mt-2 text-lg font-black capitalize text-white">
-            {page?.stripeCurrentPlan || "free"}
+            {page?.permanentPlan === "exclusive"
+              ? "exclusive (permanent)"
+              : page?.stripeCurrentPlan || "free"}
           </div>
         </div>
 
@@ -130,7 +137,7 @@ export default function PremiumTab({ page }) {
             Renewal
           </div>
           <div className="mt-2 text-lg font-black text-white">
-            {formatDate(page?.stripeCurrentPeriodEnd)}
+            {isPermanent ? "Never" : formatDate(page?.stripeCurrentPeriodEnd)}
           </div>
         </div>
       </div>
@@ -148,14 +155,16 @@ export default function PremiumTab({ page }) {
       )}
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={openBillingPortal}
-          disabled={loading}
-          className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading ? "Opening..." : "Manage / Cancel Subscription"}
-        </button>
+        {!isPermanent && (
+          <button
+            type="button"
+            onClick={openBillingPortal}
+            disabled={loading}
+            className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Opening..." : "Manage / Cancel Subscription"}
+          </button>
+        )}
 
         <a
           href="/pricing"
