@@ -1,23 +1,25 @@
+// src/app/(page)/[uri]/page.js
 import mongoose from "mongoose";
 import { Page } from "@/models/Page";
 import { User } from "@/models/User";
 import { Ban } from "@/models/Ban";
 import PublicLinks from "@/components/PublicLinks";
+import ProfileShareButton from "@/components/ProfileShareButton";
 
 const norm = (s) => (s || "").toString().trim().toLowerCase();
 
 function BannedScreen({ reason }) {
   return (
-    <div className="min-h-screen bg-[#0b0f14] text-gray-100 flex items-center justify-center p-6">
-      <div className="max-w-xl w-full rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center">
-        <h1 className="text-3xl font-extrabold">This page has been banned</h1>
-        <p className="text-gray-300 mt-3">
-          This profile is not available.
-        </p>
+    <div className="min-h-screen bg-[#0b0f14] text-white flex items-center justify-center px-4">
+      <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-black/30 p-8 text-center">
+        <h1 className="text-3xl font-black">This page has been banned</h1>
+        <p className="mt-3 text-white/75">This profile is not available.</p>
 
-        <div className="mt-6 text-left rounded-xl border border-white/10 bg-black/30 p-4">
-          <div className="text-sm text-gray-400 mb-1">Reason</div>
-          <div className="text-gray-100 font-semibold">
+        <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-left">
+          <div className="text-xs font-bold uppercase tracking-[0.24em] text-red-200/80">
+            Reason
+          </div>
+          <div className="mt-2 text-sm text-red-50">
             {reason || "No reason provided."}
           </div>
         </div>
@@ -33,6 +35,7 @@ function Badge({ children, tone = "blue" }) {
     blue: "bg-blue-500/15 text-blue-200 border-blue-400/20",
     gold: "bg-yellow-500/15 text-yellow-200 border-yellow-400/20",
   };
+
   return <span className={`${base} ${tones[tone] || tones.blue}`}>{children}</span>;
 }
 
@@ -41,7 +44,6 @@ export default async function PageByUri({ params }) {
 
   await mongoose.connect(process.env.MONGO_URI);
 
-  // ✅ Ban by URI/username (before even loading page)
   const uriBan = await Ban.findOne({
     type: "uri",
     identifier: norm(uri),
@@ -55,17 +57,17 @@ export default async function PageByUri({ params }) {
 
   if (!page) {
     return (
-      <div className="min-h-screen bg-[#0b0f14] text-gray-100 flex items-center justify-center p-6">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Not found</h1>
-          <p className="text-gray-400 mt-2">This page doesn’t exist.</p>
+      <div className="min-h-screen bg-[#0b0f14] text-white flex items-center justify-center px-4">
+        <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-black/30 p-8 text-center">
+          <h1 className="text-3xl font-black">Not found</h1>
+          <p className="mt-3 text-white/75">This page doesn’t exist.</p>
         </div>
       </div>
     );
   }
 
-  // ✅ Ban by owner email (blocks public page too)
   const ownerEmail = norm(page.owner);
+
   if (ownerEmail) {
     const emailBan = await Ban.findOne({
       type: "email",
@@ -86,55 +88,98 @@ export default async function PageByUri({ params }) {
           backgroundSize: "cover",
           backgroundPosition: "center",
         }
-      : { backgroundColor: page.bgColor || "#0b0f14" };
+      : {
+          backgroundColor: page.bgColor || "#0b0f14",
+        };
 
   const avatar = page.profileImage || user?.image || "/assets/logo.webp";
   const banner = page.bannerImage;
-
   const who = norm(page.uri);
   const isFounder = who === "ceosolace";
   const isOfficial = who === "biolinkhq";
 
   return (
-    <div className="min-h-screen text-gray-100" style={bgStyle}>
-      <div className="max-w-2xl mx-auto">
-        {banner ? (
-          <img
-            src={banner}
-            alt="banner"
-            className="w-full h-40 md:h-56 object-cover rounded-b-2xl"
-          />
-        ) : (
-          <div className="w-full h-32 md:h-44 bg-white/5 border-b border-white/10 rounded-b-2xl" />
-        )}
+    <main
+      className="min-h-screen text-white"
+      style={bgStyle}
+    >
+      <div className="min-h-screen bg-black/40 backdrop-blur-[1px]">
+        <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-8 sm:px-6">
+          <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[#050b18]/80 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+            {banner ? (
+              <div className="h-48 w-full sm:h-56">
+                <img
+                  src={banner}
+                  alt={`${page.displayName || page.uri} banner`}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="h-24 w-full bg-gradient-to-r from-blue-900/60 via-indigo-900/50 to-slate-900/60 sm:h-28" />
+            )}
 
-        <div className="-mt-10 flex justify-center">
-          <img
-            src={avatar}
-            alt="profile"
-            className="w-24 h-24 rounded-full border-4 border-[#0b0f14] object-cover shadow"
-          />
-        </div>
+            <div className="px-5 pb-6 sm:px-8">
+              <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex items-end gap-4">
+                  <img
+                    src={avatar}
+                    alt={page.displayName || page.uri}
+                    className="h-24 w-24 rounded-full border-4 border-[#050b18] object-cover shadow-xl sm:h-28 sm:w-28"
+                  />
 
-        <div className="text-center px-4 mt-3">
-          <h1 className="text-3xl font-extrabold">
-            {page.displayName || user?.name || page.uri}
-          </h1>
+                  <div className="pb-1">
+                    <h1 className="text-2xl font-black leading-tight sm:text-3xl">
+                      {page.displayName || user?.name || page.uri}
+                    </h1>
 
-          {(isFounder || isOfficial) && (
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {isFounder && <Badge tone="gold">Founder</Badge>}
-              {isOfficial && <Badge tone="blue">Official</Badge>}
+                    {(isFounder || isOfficial) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {isFounder && <Badge tone="gold">Founder</Badge>}
+                        {isOfficial && <Badge>Official</Badge>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="sm:pb-2">
+                  <ProfileShareButton
+                    displayName={page.displayName || user?.name || page.uri}
+                    username={page.uri}
+                    bio={page.bio}
+                    avatar={avatar}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {!!page.location && (
+                  <div className="text-sm font-medium text-white/65">
+                    {page.location}
+                  </div>
+                )}
+
+                {!!page.bio && (
+                  <p className="max-w-2xl text-sm leading-6 text-white/85 sm:text-base">
+                    {page.bio}
+                  </p>
+                )}
+
+                <div className="text-sm font-semibold text-white/45">
+                  /{page.uri}
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <PublicLinks
+                  uri={page.uri}
+                  buttons={page.buttons}
+                  links={page.links}
+                />
+              </div>
             </div>
-          )}
-
-          {!!page.location && <p className="text-gray-300 mt-2">{page.location}</p>}
-          {!!page.bio && <p className="text-gray-300 mt-2">{page.bio}</p>}
-          <div className="text-gray-400 text-sm mt-2">/{page.uri}</div>
+          </div>
         </div>
-
-        <PublicLinks uri={page.uri} buttons={page.buttons} links={page.links} />
       </div>
-    </div>
+    </main>
   );
 }
