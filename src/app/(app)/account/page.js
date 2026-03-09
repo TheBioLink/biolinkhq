@@ -1,11 +1,11 @@
 // src/app/account/page.js
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import PremiumTab from "@/components/dashboard/PremiumTab";
 import UsernameForm from "@/components/forms/UsernameForm";
 import PageSettingsForm from "@/components/forms/PageSettingsForm";
 import PageButtonsForm from "@/components/forms/PageButtonsForm";
 import PageLinksForm from "@/components/forms/PageLinksForm";
 import BanPanel from "@/components/admin/BanPanel";
-import PremiumTab from "@/components/dashboard/PremiumTab";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -16,7 +16,7 @@ import {
   syncSubscriptionToPageBySessionId,
 } from "@/libs/stripe-subscriptions";
 
-export default async function AccountPage({ searchParams }) {
+export default async function AccountPage({ searchParams = {} }) {
   const session = await getServerSession(authOptions);
   const email = normalizeEmail(session?.user?.email);
 
@@ -53,7 +53,7 @@ export default async function AccountPage({ searchParams }) {
           <UsernameForm desiredUsername="" />
         </div>
 
-        {isFounderAdmin && <BanPanel />}
+        {isFounderAdmin ? <BanPanel /> : null}
       </DashboardShell>
     );
   }
@@ -63,7 +63,7 @@ export default async function AccountPage({ searchParams }) {
       title="My Page"
       subtitle="Update your profile, buttons and links. Changes are live instantly."
     >
-      {hasPremiumTab && <PremiumTab page={page} />}
+      {hasPremiumTab ? <PremiumTab page={page} /> : null}
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
         <div className="mb-6 flex items-center justify-between">
@@ -94,7 +94,7 @@ export default async function AccountPage({ searchParams }) {
         <PageLinksForm page={page} />
       </section>
 
-      {isFounderAdmin && <BanPanel />}
+      {isFounderAdmin ? <BanPanel /> : null}
     </DashboardShell>
   );
 }
