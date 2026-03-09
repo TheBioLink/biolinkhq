@@ -3,30 +3,36 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import stripe from "@/libs/stripe";
+import mongoose from "mongoose";
+import { Page } from "@/models/Page";
 
 const PLANS = {
   basic: {
     key: "basic",
     name: "Basic",
-    monthlyAmount: 500,   // £5/month
-    annualAmount: 5000,   // £50/year
+    monthlyAmount: 500,
+    annualAmount: 5000,
     trialDays: 0,
   },
   premium: {
     key: "premium",
     name: "Premium",
-    monthlyAmount: 2000,  // £20/month
-    annualAmount: 20000,  // £200/year
+    monthlyAmount: 2000,
+    annualAmount: 20000,
     trialDays: 7,
   },
   exclusive: {
     key: "exclusive",
     name: "Exclusive",
-    monthlyAmount: 10000, // £100/month
-    annualAmount: 100000, // £1000/year
+    monthlyAmount: 10000,
+    annualAmount: 100000,
     trialDays: 0,
   },
 };
+
+function normalizeEmail(email) {
+  return String(email || "").toLowerCase().trim();
+}
 
 function getBaseUrl(req) {
   return (
@@ -64,6 +70,22 @@ export async function POST(req) {
       );
     }
 
+    const email = normalizeEmail(session.user.email);
+
+    await mongoose.connect(process.env.MONGO_URI);
+
+    const existingPage = await Page.findOne({ owner: email }).lean();
+
+    if (
+      existingPage?.stripeSubscriptionStatus &&
+      ["active", "trialing", "past_due"].includes(existingPage.stripeSubscriptionStatus)
+    ) {
+      return NextResponse.json(
+        { error: "You already have a subscription. Manage it from your dashboard." },
+        { status: 400 }
+      );
+    }
+
     const interval = billing === "annual" ? "year" : "month";
     const unitAmount =
       billing === "annual" ? plan.annualAmount : plan.monthlyAmount;
@@ -74,17 +96,17 @@ export async function POST(req) {
       mode: "subscription",
       success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing?checkout=cancelled`,
-      customer_email: session.user.email,
+      customer_email: email,
       billing_address_collection: "auto",
       allow_promotion_codes: true,
       metadata: {
-        email: session.user.email,
+        email,
         plan: plan.key,
         billing,
       },
       subscription_data: {
         metadata: {
-          email: session.user.email,
+          email,
           plan: plan.key,
           billing,
         },
@@ -102,11 +124,11 @@ export async function POST(req) {
               interval,
             },
             product_data: {
-              name: `BiolinkHQ ${plan.name} (${billing === "annual" ? "Annual" : "Monthly"})`,
+              name: `BiolinkHQ ${plan.name} ${billing === "annual" ? "Annual" : "Monthly"}`,
               description:
                 plan.key === "premium" && billing === "monthly"
-                  ? "Premium subscription with 7-day free trial"
-                  : `${plan.name} subscription`,
+                  ? "Premium monthly subscription with a 7-day free trial"
+                  : `${plan.name} ${billing} subscription`,
               metadata: {
                 plan: plan.key,
                 billing,
