@@ -3,8 +3,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import stripe from "@/libs/stripe";
-import mongoose from "mongoose";
-import { Page } from "@/models/Page";
+import {
+  connectDb,
+  findPageByOwner,
+  normalizeEmail,
+} from "@/libs/stripe-subscriptions";
 
 const PLANS = {
   basic: {
@@ -30,10 +33,6 @@ const PLANS = {
   },
 };
 
-function normalizeEmail(email) {
-  return String(email || "").toLowerCase().trim();
-}
-
 function getBaseUrl(req) {
   return (
     process.env.NEXTAUTH_URL ||
@@ -53,7 +52,6 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const planKey = String(body?.plan || "").toLowerCase().trim();
     const billing = String(body?.billing || "monthly").toLowerCase().trim();
-
     const plan = PLANS[planKey];
 
     if (!plan) {
@@ -63,7 +61,7 @@ export async function POST(req) {
       );
     }
 
-    if (billing !== "monthly" && billing !== "annual") {
+    if (!["monthly", "annual"].includes(billing)) {
       return NextResponse.json(
         { error: "Invalid billing. Use monthly or annual." },
         { status: 400 }
@@ -72,13 +70,21 @@ export async function POST(req) {
 
     const email = normalizeEmail(session.user.email);
 
-    await mongoose.connect(process.env.MONGO_URI);
+    await connectDb();
 
-    const existingPage = await Page.findOne({ owner: email }).lean();
+    const existingPage = await findPageByOwner(email);
+
+    if (!existingPage) {
+      return NextResponse.json(
+        { error: "No page found for this account" },
+        { status: 404 }
+      );
+    }
 
     if (
-      existingPage?.stripeSubscriptionStatus &&
-      ["active", "trialing", "past_due"].includes(existingPage.stripeSubscriptionStatus)
+      ["active", "trialing", "past_due"].includes(
+        String(existingPage?.stripeSubscriptionStatus || "").toLowerCase()
+      )
     ) {
       return NextResponse.json(
         { error: "You already have a subscription. Manage it from your dashboard." },
@@ -120,9 +126,7 @@ export async function POST(req) {
           price_data: {
             currency: "gbp",
             unit_amount: unitAmount,
-            recurring: {
-              interval,
-            },
+            recurring: { interval },
             product_data: {
               name: `BiolinkHQ ${plan.name} ${billing === "annual" ? "Annual" : "Monthly"}`,
               description:
