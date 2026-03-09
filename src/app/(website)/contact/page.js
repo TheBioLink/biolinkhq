@@ -10,7 +10,7 @@ import {
 } from "react-icons/fa";
 
 export const metadata = {
-  title: "Biolinkhq by theceosolace | Contact",
+  title: "Biolinkhq by itsnicbtw | Contact",
   description:
     "Share your links, social profiles, contact info and more on one page with Biolinkhq",
 };

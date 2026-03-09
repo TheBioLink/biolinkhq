@@ -9,9 +9,9 @@
 
 </div>
 
-# Biolinkhq by theceosolace
+# Biolinkhq by itsnicbtw
 
-This project has been rebranded as **Biolinkhq by theceosolace**. It is a full‑stack “link in bio” application built with Next.js, Tailwind CSS and MongoDB. It allows users to create a personalized page with links to their content across the internet, customize their profile, and view analytics on their links.
+This project has been rebranded as **Biolinkhq by itsnicbtw**. It is a full‑stack “link in bio” application built with Next.js, Tailwind CSS and MongoDB. It allows users to create a personalized page with links to their content across the internet, customize their profile, and view analytics on their links.
 
 ## Table of Contents
 

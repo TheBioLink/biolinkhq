@@ -98,7 +98,7 @@ export default function BanPanel() {
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-gray-100 placeholder:text-gray-500"
-            placeholder={type === "email" ? "user@email.com" : "username (e.g. ceosolace)"}
+            placeholder={type === "email" ? "user@email.com" : "username (e.g. itsnicbtw)"}
           />
         </div>
 

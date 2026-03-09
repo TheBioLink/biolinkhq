@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Biolinkhq by theceosolace | Privacy",
-  description: "Privacy policy for Biolinkhq by theceosolace",
+  title: "Biolinkhq by itsnicbtw | Privacy",
+  description: "Privacy policy for Biolinkhq by itsnicbtw",
 };
 
 export default function PrivacyPage() {
@@ -147,7 +147,7 @@ export default function PrivacyPage() {
             <p>
               If you have questions or requests about this Privacy Policy,
               contact:{" "}
-              <span className="font-semibold">theceosolace</span>.
+              <span className="font-semibold">itsnicbtw</span>.
             </p>
           </section>
         </div>

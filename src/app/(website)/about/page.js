@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata = {
   // Updated site branding
-  title: "Biolinkhq by theceosolace | About",
+  title: "Biolinkhq by itsnicbtw | About",
   description:
     "Share your links, social profiles, contact info and more on one page with Biolinkhq",
 };

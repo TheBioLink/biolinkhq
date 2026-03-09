@@ -95,7 +95,7 @@ export default async function PageByUri({ params }) {
   const avatar = page.profileImage || user?.image || "/assets/logo.webp";
   const banner = page.bannerImage;
   const who = norm(page.uri);
-  const isFounder = who === "ceosolace";
+  const isFounder = who === "itsnicbtw";
   const isOfficial = who === "biolinkhq";
 
   return (

@@ -13,7 +13,7 @@ export default function Footer() {
         </div>
 
         <div className="text-sm text-gray-400 md:flex-1 md:text-center">
-          © {new Date().getFullYear()} Biolinkhq by theceosolace. All rights reserved.
+          © {new Date().getFullYear()} Biolinkhq by itsnicbtw. All rights reserved.
         </div>
 
         <div className="flex gap-4 text-sm font-bold">

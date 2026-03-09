@@ -1,7 +1,7 @@
 import LoginWithGoogle from "@/components/buttons/LoginWithGoogle";
 
 export const metadata = {
-  title: "Biolinkhq by theceosolace | Login",
+  title: "Biolinkhq by itsnicbtw | Login",
   description:
     "Share your links, social profiles, contact info and more on one page with Biolinkhq",
 };
