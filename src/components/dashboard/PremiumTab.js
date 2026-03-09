@@ -56,20 +56,23 @@ export default function PremiumTab({ page }) {
 
       const res = await fetch("/api/stripe/portal", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: "{}",
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         throw new Error(data?.error || data?.details || "Failed to open billing");
       }
 
-      if (data?.url) {
-        window.location.href = data.url;
-        return;
+      if (!data?.url) {
+        throw new Error("Missing billing portal URL");
       }
 
-      throw new Error("Missing billing portal URL");
+      window.location.href = data.url;
     } catch (error) {
       alert(error?.message || "Something went wrong");
       setLoading(false);
