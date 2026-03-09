@@ -1,74 +1,17 @@
 // src/app/api/stripe/webhook/route.js
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import stripe from "@/libs/stripe";
-import { Page } from "@/models/Page";
+import {
+  applyUpdates,
+  buildFreeState,
+  getBillingFromInterval,
+  getCustomerEmail,
+  getCustomerIdFromObject,
+  getPlanFromAmount,
+  normalizeEmail,
+} from "@/libs/stripe-subscriptions";
 
 export const runtime = "nodejs";
-
-async function connectDb() {
-  if (mongoose.connection.readyState === 1) return;
-  await mongoose.connect(process.env.MONGO_URI);
-}
-
-function normalizeEmail(email) {
-  return String(email || "").toLowerCase().trim();
-}
-
-function getPlanFromAmount(amount, interval = "month") {
-  if (interval === "year") {
-    if (amount === 5000) return "basic";
-    if (amount === 20000) return "premium";
-    if (amount === 100000) return "exclusive";
-  }
-
-  if (amount === 500) return "basic";
-  if (amount === 2000) return "premium";
-  if (amount === 10000) return "exclusive";
-
-  return "free";
-}
-
-function getCustomerIdFromObject(object) {
-  return typeof object?.customer === "string"
-    ? object.customer
-    : object?.customer?.id || null;
-}
-
-async function getCustomerEmail(customerId) {
-  if (!customerId) return "";
-
-  const customer = await stripe.customers.retrieve(customerId);
-
-  if ("deleted" in customer && customer.deleted) return "";
-
-  return normalizeEmail(customer.email || customer.metadata?.email || "");
-}
-
-async function updatePageByEmail(email, updates) {
-  const normalized = normalizeEmail(email);
-  if (!normalized) return null;
-
-  await connectDb();
-
-  return Page.findOneAndUpdate(
-    { owner: normalized },
-    { $set: updates },
-    { new: true }
-  );
-}
-
-async function updatePageByCustomerId(customerId, updates) {
-  if (!customerId) return null;
-
-  await connectDb();
-
-  return Page.findOneAndUpdate(
-    { stripeCustomerId: customerId },
-    { $set: updates },
-    { new: true }
-  );
-}
 
 async function resolveEmailFromCheckoutSession(sessionObject) {
   return normalizeEmail(
@@ -107,39 +50,26 @@ function getPriceFromSubscription(subscriptionObject) {
 }
 
 function getBillingFromSubscription(subscriptionObject) {
-  const metadataBilling =
-    subscriptionObject?.metadata?.billing ||
-    subscriptionObject?.items?.data?.[0]?.price?.product?.metadata?.billing;
+  const metadataBilling = subscriptionObject?.metadata?.billing;
 
   if (metadataBilling) return String(metadataBilling).toLowerCase();
 
   const interval =
     subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
 
-  return interval === "year" ? "annual" : "monthly";
+  return getBillingFromInterval(interval);
 }
 
 function getPlanFromSubscription(subscriptionObject) {
-  const metadataPlan =
-    subscriptionObject?.metadata?.plan ||
-    subscriptionObject?.items?.data?.[0]?.price?.product?.metadata?.plan ||
-    subscriptionObject?.items?.data?.[0]?.plan?.metadata?.plan;
+  const metadataPlan = subscriptionObject?.metadata?.plan;
 
   if (metadataPlan) return String(metadataPlan).toLowerCase();
 
-  const amount = subscriptionObject?.items?.data?.[0]?.price?.unit_amount;
+  const amount = subscriptionObject?.items?.data?.[0]?.price?.unit_amount ?? 0;
   const interval =
     subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
 
   return getPlanFromAmount(amount, interval);
-}
-
-async function applyUpdates(email, customerId, updates) {
-  const updated = await updatePageByEmail(email, updates);
-
-  if (!updated && customerId) {
-    await updatePageByCustomerId(customerId, updates);
-  }
 }
 
 export async function POST(req) {
@@ -192,9 +122,7 @@ export async function POST(req) {
             stripeSubscriptionStatus:
               sessionObject.payment_status === "paid" ? "active" : "trialing",
             stripeCurrentPlan: String(sessionObject?.metadata?.plan || "free").toLowerCase(),
-            stripeBillingCycle: String(
-              sessionObject?.metadata?.billing || "monthly"
-            ).toLowerCase(),
+            stripeBillingCycle: String(sessionObject?.metadata?.billing || "monthly").toLowerCase(),
             stripeLastEventType: event.type,
           });
         }
@@ -242,21 +170,15 @@ export async function POST(req) {
         const customerId = getCustomerIdFromObject(subscriptionObject);
         const email = await resolveEmailFromSubscription(subscriptionObject);
 
-        await applyUpdates(email, customerId, {
-          stripeCustomerId: customerId || "",
-          stripeSubscriptionId: subscriptionObject.id || "",
-          stripeSubscriptionStatus: "canceled",
-          stripeCurrentPlan: "free",
-          stripeBillingCycle: "",
-          stripePriceId: "",
-          stripeUnitAmount: 0,
-          stripeCurrency: "gbp",
-          stripeInterval: "month",
-          stripeCancelAtPeriodEnd: false,
-          stripeCurrentPeriodEnd: null,
-          stripeTrialEndsAt: null,
-          stripeLastEventType: event.type,
-        });
+        await applyUpdates(
+          email,
+          customerId,
+          buildFreeState({
+            stripeCustomerId: customerId || "",
+            stripeSubscriptionId: subscriptionObject.id || "",
+            stripeLastEventType: event.type,
+          })
+        );
 
         break;
       }
@@ -265,15 +187,16 @@ export async function POST(req) {
         const invoiceObject = event.data.object;
         const customerId = getCustomerIdFromObject(invoiceObject);
         const email = await resolveEmailFromInvoice(invoiceObject);
+
         const linePrice = invoiceObject?.lines?.data?.[0]?.price || null;
-        const amount = linePrice?.unit_amount;
+        const amount = linePrice?.unit_amount ?? 0;
         const interval = linePrice?.recurring?.interval || "month";
         const plan =
-          invoiceObject?.parent?.subscription_details?.metadata?.plan ||
+          String(invoiceObject?.parent?.subscription_details?.metadata?.plan || "").toLowerCase() ||
           getPlanFromAmount(amount, interval);
         const billing =
-          invoiceObject?.parent?.subscription_details?.metadata?.billing ||
-          (interval === "year" ? "annual" : "monthly");
+          String(invoiceObject?.parent?.subscription_details?.metadata?.billing || "").toLowerCase() ||
+          getBillingFromInterval(interval);
 
         await applyUpdates(email, customerId, {
           stripeCustomerId: customerId || "",
@@ -291,13 +214,28 @@ export async function POST(req) {
         const invoiceObject = event.data.object;
         const customerId = getCustomerIdFromObject(invoiceObject);
         const email = await resolveEmailFromInvoice(invoiceObject);
+        const billingReason = String(invoiceObject?.billing_reason || "");
 
-        await applyUpdates(email, customerId, {
-          stripeCustomerId: customerId || "",
-          stripeSubscriptionStatus: "past_due",
-          stripeLastInvoiceId: invoiceObject.id || "",
-          stripeLastEventType: event.type,
-        });
+        const shouldDowngrade =
+          billingReason === "subscription_cycle" ||
+          billingReason === "subscription_create";
+
+        await applyUpdates(
+          email,
+          customerId,
+          shouldDowngrade
+            ? buildFreeState({
+                stripeCustomerId: customerId || "",
+                stripeLastInvoiceId: invoiceObject.id || "",
+                stripeLastEventType: event.type,
+              })
+            : {
+                stripeCustomerId: customerId || "",
+                stripeSubscriptionStatus: "past_due",
+                stripeLastInvoiceId: invoiceObject.id || "",
+                stripeLastEventType: event.type,
+              }
+        );
 
         break;
       }
