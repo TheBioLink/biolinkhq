@@ -8,7 +8,7 @@ import { Ban } from "@/models/Ban";
 const norm = (s) => (s || "").toString().trim().toLowerCase();
 
 export const authOptions = {
-  secret: process.env.SECRET,
+  secret: process.env.NEXTAUTH_SECRET,
   adapter: MongoDBAdapter(clientPromise),
   providers: [
     GoogleProvider({
@@ -16,13 +16,10 @@ export const authOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
   ],
-
-  // ✅ make NextAuth send errors back to /login
   pages: {
     signIn: "/login",
     error: "/login",
   },
-
   callbacks: {
     async signIn({ user }) {
       const email = norm(user?.email);
@@ -31,7 +28,6 @@ export const authOptions = {
       try {
         await mongoose.connect(process.env.MONGO_URI);
 
-        // ✅ Ban by email blocks login
         const banned = await Ban.findOne({
           type: "email",
           identifier: email,
@@ -42,7 +38,6 @@ export const authOptions = {
           return `/login?error=banned&reason=${reason}`;
         }
       } catch {
-        // If DB fails, don't block sign-in
         return true;
       }
 
