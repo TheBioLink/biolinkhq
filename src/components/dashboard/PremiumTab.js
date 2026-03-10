@@ -7,9 +7,7 @@ function formatMoney(amount, currency = "gbp", billingCycle = "monthly") {
   const value = typeof amount === "number" ? amount / 100 : 0;
   const suffix = billingCycle === "annual" ? "/year" : "/month";
 
-  if (billingCycle === "lifetime") {
-    return "Included";
-  }
+  if (billingCycle === "lifetime") return "Included";
 
   try {
     return `${new Intl.NumberFormat("en-GB", {
@@ -34,15 +32,9 @@ function formatDate(value) {
 }
 
 function tone(status) {
-  if (status === "active") {
-    return "border-emerald-400/20 bg-emerald-500/10 text-emerald-300";
-  }
-  if (status === "trialing") {
-    return "border-blue-400/20 bg-blue-500/10 text-blue-300";
-  }
-  if (status === "past_due") {
-    return "border-amber-400/20 bg-amber-500/10 text-amber-300";
-  }
+  if (status === "active") return "border-emerald-400/20 bg-emerald-500/10 text-emerald-300";
+  if (status === "trialing") return "border-blue-400/20 bg-blue-500/10 text-blue-300";
+  if (status === "past_due") return "border-amber-400/20 bg-amber-500/10 text-amber-300";
   return "border-white/10 bg-white/5 text-white/70";
 }
 
@@ -56,9 +48,7 @@ export default function PremiumTab({ page }) {
 
       const res = await fetch("/api/stripe/portal", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: "{}",
       });
 
@@ -84,9 +74,9 @@ export default function PremiumTab({ page }) {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="mb-2 inline-flex rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.22em] text-blue-300">
-            Premium
+            Subscription
           </div>
-          <h2 className="text-2xl font-black text-white">Subscription</h2>
+          <h2 className="text-2xl font-black text-white">Your plan</h2>
           <p className="mt-2 text-sm text-white/65">
             Billing, trial status, and access are read from Stripe-backed MongoDB data.
           </p>
@@ -157,8 +147,8 @@ export default function PremiumTab({ page }) {
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap gap-3">
-        {!isPermanent && (
+      {!isPermanent && (
+        <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={openBillingPortal}
@@ -167,15 +157,8 @@ export default function PremiumTab({ page }) {
           >
             {loading ? "Opening..." : "Manage / Cancel Subscription"}
           </button>
-        )}
-
-        <a
-          href="/pricing"
-          className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10"
-        >
-          View Plans
-        </a>
-      </div>
+        </div>
+      )}
     </section>
   );
 }
