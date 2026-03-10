@@ -1,35 +1,90 @@
-// src/app/account/subscription/page.js
+// src/app/account/page.js
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import PremiumTab from "@/components/dashboard/PremiumTab";
+import UsernameForm from "@/components/forms/UsernameForm";
+import PageSettingsForm from "@/components/forms/PageSettingsForm";
+import PageButtonsForm from "@/components/forms/PageButtonsForm";
+import PageLinksForm from "@/components/forms/PageLinksForm";
+import BanPanel from "@/components/admin/BanPanel";
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import mongoose from "mongoose";
 import { Page } from "@/models/Page";
-import {
-  connectDb,
-  ensurePermanentExclusiveForPage,
-  normalizeEmail,
-} from "@/libs/stripe-subscriptions";
 
-export default async function SubscriptionPage() {
+export default async function AccountPage() {
   const session = await getServerSession(authOptions);
-  const email = normalizeEmail(session?.user?.email);
+  const email = (session?.user?.email || "").toLowerCase().trim();
 
   if (!email) return null;
 
-  await connectDb();
+  await mongoose.connect(process.env.MONGO_URI);
 
-  let page = await Page.findOne({ owner: email });
-  page = await ensurePermanentExclusiveForPage(page);
+  const page = await Page.findOne({ owner: email }).lean();
+  const username = page?.uri || "";
 
-  const plainPage = page?.toObject ? page.toObject() : page;
+  const isFounderAdmin = email === "mrrunknown44@gmail.com";
+
+  if (!username) {
+    return (
+      <DashboardShell
+        title="Pick your username"
+        subtitle="This becomes your public link."
+        activeTab="page"
+      >
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
+          <UsernameForm desiredUsername="" />
+        </div>
+
+        {isFounderAdmin && <BanPanel />}
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell
-      title="Subscription"
-      subtitle="Manage your plan, billing and cancellation."
-      activeTab="subscription"
+      title="My Page"
+      subtitle="Update your profile, buttons and links."
+      activeTab="page"
     >
-      <PremiumTab page={plainPage} />
+      {/* PROFILE */}
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-extrabold">Profile</h2>
+
+          <a
+            href={`/${username}`}
+            className="text-sm text-blue-400 underline hover:text-blue-300"
+          >
+            View public page →
+          </a>
+        </div>
+
+        <PageSettingsForm page={page} user={session.user} />
+      </section>
+
+      {/* BUTTONS */}
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <h2 className="text-xl font-extrabold mb-3">Buttons</h2>
+
+        <p className="text-sm text-gray-400 mb-6">
+          Small circular icons shown under your bio.
+        </p>
+
+        <PageButtonsForm page={page} />
+      </section>
+
+      {/* LINKS */}
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <h2 className="text-xl font-extrabold mb-3">Links</h2>
+
+        <p className="text-sm text-gray-400 mb-6">
+          Clickable cards displayed on your public page.
+        </p>
+
+        <PageLinksForm page={page} />
+      </section>
+
+      {isFounderAdmin && <BanPanel />}
     </DashboardShell>
   );
 }
