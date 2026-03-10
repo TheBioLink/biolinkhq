@@ -12,6 +12,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faTwitter } from "@fortawesome/free-brands-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { trackProfileEvent } from "@/lib/trackProfileEvent";
 
 function getSafeUrl(url) {
   if (url && typeof url === "string") return url;
@@ -39,6 +40,10 @@ export default function ProfileShareButton({
   useEffect(() => {
     if (!open) return;
 
+    if (username) {
+      trackProfileEvent(username, "share_open");
+    }
+
     const onKeyDown = (e) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -50,7 +55,7 @@ export default function ProfileShareButton({
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = "";
     };
-  }, [open]);
+  }, [open, username]);
 
   const shareText = useMemo(() => {
     const name = displayName || username || "this profile";
@@ -66,6 +71,9 @@ export default function ProfileShareButton({
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(mountedUrl);
+      if (username) {
+        trackProfileEvent(username, "share_copy", mountedUrl);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {}
@@ -79,6 +87,9 @@ export default function ProfileShareButton({
           text: shareText,
           url: mountedUrl,
         });
+        if (username) {
+          trackProfileEvent(username, "share_native", mountedUrl);
+        }
         return;
       }
       await copyLink();
@@ -98,9 +109,7 @@ export default function ProfileShareButton({
         <div className="flex min-h-screen items-center justify-center p-4 sm:p-6">
           <div className="relative my-6 w-full max-w-[510px] rounded-[26px] border border-[#1d2b63] bg-[#071233] shadow-[0_20px_80px_rgba(0,0,0,0.6)]">
             <div className="flex items-center justify-between border-b border-white/8 px-5 py-5">
-              <h3 className="text-xl font-extrabold text-white">
-                Share Profile
-              </h3>
+              <h3 className="text-xl font-extrabold text-white">Share Profile</h3>
 
               <button
                 type="button"
@@ -166,6 +175,11 @@ export default function ProfileShareButton({
                     href={tweetHref}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => {
+                      if (username) {
+                        trackProfileEvent(username, "share_x", mountedUrl);
+                      }
+                    }}
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-[#08163d] px-4 py-4 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-[#0a1b4a]"
                   >
                     <FontAwesomeIcon icon={faTwitter} className="h-4 w-4" />
