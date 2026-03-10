@@ -1,98 +1,103 @@
-// src/app/account/page.js
-import DashboardShell from "@/components/dashboard/DashboardShell";
-import UsernameForm from "@/components/forms/UsernameForm";
-import PageSettingsForm from "@/components/forms/PageSettingsForm";
-import PageButtonsForm from "@/components/forms/PageButtonsForm";
-import PageLinksForm from "@/components/forms/PageLinksForm";
-import BanPanel from "@/components/admin/BanPanel";
-
+// src/components/dashboard/DashboardShell.js
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Page } from "@/models/Page";
-import {
-  connectDb,
-  ensurePermanentExclusiveForPage,
-  normalizeEmail,
-  syncSubscriptionToPageBySessionId,
-} from "@/libs/stripe-subscriptions";
+import mongoose from "mongoose";
 
-export default async function AccountPage({ searchParams = {} }) {
+function navClass(active) {
+  return active
+    ? "flex items-center gap-3 rounded-xl px-4 py-3 text-blue-400 bg-blue-500/10 font-bold"
+    : "flex items-center gap-3 rounded-xl px-4 py-3 text-white/70 hover:bg-white/5";
+}
+
+export default async function DashboardShell({
+  title,
+  subtitle,
+  activeTab = "page",
+  children,
+}) {
   const session = await getServerSession(authOptions);
-  const email = normalizeEmail(session?.user?.email);
+  const email = (session?.user?.email || "").toLowerCase().trim();
 
-  if (!email) return null;
+  let page = null;
 
-  await connectDb();
-
-  const checkoutState = String(searchParams?.checkout || "");
-  const sessionId = String(searchParams?.session_id || "");
-
-  if (checkoutState === "success" && sessionId) {
-    try {
-      await syncSubscriptionToPageBySessionId(sessionId, email);
-    } catch (error) {
-      console.error("Stripe post-checkout sync failed:", error);
-    }
+  if (email) {
+    await mongoose.connect(process.env.MONGO_URI);
+    page = await Page.findOne({ owner: email }).lean();
   }
 
-  let page = await Page.findOne({ owner: email });
-  page = await ensurePermanentExclusiveForPage(page);
-
-  const plainPage = page?.toObject ? page.toObject() : page;
-  const username = plainPage?.uri || "";
-  const isFounderAdmin = email === "mrrunknown44@gmail.com";
-
-  if (!username) {
-    return (
-      <DashboardShell
-        title="Pick your username"
-        subtitle="This becomes your public link."
-        activeTab="page"
-      >
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
-          <UsernameForm desiredUsername="" />
-        </div>
-        {isFounderAdmin ? <BanPanel /> : null}
-      </DashboardShell>
+  const showSubscription =
+    page?.permanentPlan === "exclusive" ||
+    ["active", "trialing", "past_due"].includes(
+      String(page?.stripeSubscriptionStatus || "").toLowerCase()
     );
-  }
 
   return (
-    <DashboardShell
-      title="My Page"
-      subtitle="Update your profile, buttons and links. Changes are live instantly."
-      activeTab="page"
-    >
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-extrabold">Profile</h2>
-          <a
-            href={`/${username}`}
-            className="text-sm text-blue-400 underline hover:text-blue-300"
-          >
-            View public page →
-          </a>
-        </div>
-        <PageSettingsForm page={plainPage} user={session.user} />
-      </section>
+    <div className="min-h-screen bg-[#060b14] text-white">
+      <div className="mx-auto flex min-h-screen max-w-[1400px]">
+        {/* Sidebar */}
+        <aside className="w-[260px] border-r border-white/10 bg-white/[0.03] px-6 py-8">
+          <div className="mb-8">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-500/80 text-4xl font-black">
+              {(session?.user?.name || session?.user?.email || "U")
+                .slice(0, 1)
+                .toUpperCase()}
+            </div>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
-        <h2 className="mb-3 text-xl font-extrabold">Buttons</h2>
-        <p className="mb-6 text-sm text-gray-400">
-          Small circular icons shown under your bio.
-        </p>
-        <PageButtonsForm page={plainPage} />
-      </section>
+            <div className="mt-5 text-lg font-bold">
+              /{page?.uri || "account"}
+            </div>
+          </div>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
-        <h2 className="mb-3 text-xl font-extrabold">Links</h2>
-        <p className="mb-6 text-sm text-gray-400">
-          Clickable cards displayed on your public page.
-        </p>
-        <PageLinksForm page={plainPage} />
-      </section>
+          {/* NAVIGATION */}
+          <nav className="space-y-2">
+            <Link href="/account" className={navClass(activeTab === "page")}>
+              My Page
+            </Link>
 
-      {isFounderAdmin ? <BanPanel /> : null}
-    </DashboardShell>
+            <Link
+              href="/account/analytics"
+              className={navClass(activeTab === "analytics")}
+            >
+              Analytics
+            </Link>
+
+            {showSubscription && (
+              <Link
+                href="/account/subscription"
+                className={navClass(activeTab === "subscription")}
+              >
+                Subscription
+              </Link>
+            )}
+
+            <Link href="/api/auth/signout" className={navClass(false)}>
+              Logout
+            </Link>
+          </nav>
+
+          <div className="mt-8 border-t border-white/10 pt-6">
+            <Link
+              href="/"
+              className="text-sm text-white/55 hover:text-white transition"
+            >
+              ← Back to website
+            </Link>
+          </div>
+        </aside>
+
+        {/* MAIN */}
+        <main className="flex-1 px-8 py-10">
+          <h1 className="text-5xl font-black">{title}</h1>
+
+          {subtitle && (
+            <p className="mt-3 text-white/55">{subtitle}</p>
+          )}
+
+          <div className="mt-10 space-y-8">{children}</div>
+        </main>
+      </div>
+    </div>
   );
 }
