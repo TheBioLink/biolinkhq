@@ -1,6 +1,5 @@
 // src/app/account/page.js
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import PremiumTab from "@/components/dashboard/PremiumTab";
 import UsernameForm from "@/components/forms/UsernameForm";
 import PageSettingsForm from "@/components/forms/PageSettingsForm";
 import PageButtonsForm from "@/components/forms/PageButtonsForm";
@@ -12,6 +11,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Page } from "@/models/Page";
 import {
   connectDb,
+  ensurePermanentExclusiveForPage,
   normalizeEmail,
   syncSubscriptionToPageBySessionId,
 } from "@/libs/stripe-subscriptions";
@@ -35,24 +35,23 @@ export default async function AccountPage({ searchParams = {} }) {
     }
   }
 
-  const page = await Page.findOne({ owner: email }).lean();
-  const username = page?.uri || "";
-  const isFounderAdmin = email === "mrrunknown44@gmail.com";
+  let page = await Page.findOne({ owner: email });
+  page = await ensurePermanentExclusiveForPage(page);
 
-  const hasPremiumTab = ["active", "trialing", "past_due"].includes(
-    String(page?.stripeSubscriptionStatus || "").toLowerCase()
-  );
+  const plainPage = page?.toObject ? page.toObject() : page;
+  const username = plainPage?.uri || "";
+  const isFounderAdmin = email === "mrrunknown44@gmail.com";
 
   if (!username) {
     return (
       <DashboardShell
         title="Pick your username"
         subtitle="This becomes your public link."
+        activeTab="page"
       >
         <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
           <UsernameForm desiredUsername="" />
         </div>
-
         {isFounderAdmin ? <BanPanel /> : null}
       </DashboardShell>
     );
@@ -62,9 +61,8 @@ export default async function AccountPage({ searchParams = {} }) {
     <DashboardShell
       title="My Page"
       subtitle="Update your profile, buttons and links. Changes are live instantly."
+      activeTab="page"
     >
-      {hasPremiumTab ? <PremiumTab page={page} /> : null}
-
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-extrabold">Profile</h2>
@@ -75,7 +73,7 @@ export default async function AccountPage({ searchParams = {} }) {
             View public page →
           </a>
         </div>
-        <PageSettingsForm page={page} user={session.user} />
+        <PageSettingsForm page={plainPage} user={session.user} />
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
@@ -83,7 +81,7 @@ export default async function AccountPage({ searchParams = {} }) {
         <p className="mb-6 text-sm text-gray-400">
           Small circular icons shown under your bio.
         </p>
-        <PageButtonsForm page={page} />
+        <PageButtonsForm page={plainPage} />
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
@@ -91,7 +89,7 @@ export default async function AccountPage({ searchParams = {} }) {
         <p className="mb-6 text-sm text-gray-400">
           Clickable cards displayed on your public page.
         </p>
-        <PageLinksForm page={page} />
+        <PageLinksForm page={plainPage} />
       </section>
 
       {isFounderAdmin ? <BanPanel /> : null}
