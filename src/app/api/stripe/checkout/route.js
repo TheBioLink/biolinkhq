@@ -9,6 +9,7 @@ import {
   findPageByOwner,
   normalizeEmail,
 } from "@/libs/stripe-subscriptions";
+import { User } from "@/models/User";
 
 const PLANS = {
   basic: {
@@ -42,6 +43,41 @@ function getBaseUrl(req) {
   );
 }
 
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setUTCDate(copy.getUTCDate() + days);
+  return copy;
+}
+
+function addMonths(date, months) {
+  const copy = new Date(date);
+  copy.setUTCMonth(copy.getUTCMonth() + months);
+  return copy;
+}
+
+function addYears(date, years) {
+  const copy = new Date(date);
+  copy.setUTCFullYear(copy.getUTCFullYear() + years);
+  return copy;
+}
+
+function getCreditCoveredDays({ billing, isTrial }) {
+  const now = new Date();
+
+  if (billing === "annual") {
+    const end = addYears(now, 1);
+    return Math.max(1, Math.ceil((end.getTime() - now.getTime()) / 86400000));
+  }
+
+  const monthEnd = addMonths(now, 1);
+  const monthDays = Math.max(
+    1,
+    Math.ceil((monthEnd.getTime() - now.getTime()) / 86400000)
+  );
+
+  return isTrial ? 7 + monthDays : monthDays;
+}
+
 export async function POST(req) {
   try {
     const session = await getServerSession(authOptions);
@@ -53,6 +89,8 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const planKey = String(body?.plan || "").toLowerCase().trim();
     const billing = String(body?.billing || "monthly").toLowerCase().trim();
+    const paymentOption = String(body?.paymentOption || "card").toLowerCase().trim();
+
     const plan = PLANS[planKey];
 
     if (!plan) {
@@ -65,6 +103,13 @@ export async function POST(req) {
     if (!["monthly", "annual"].includes(billing)) {
       return NextResponse.json(
         { error: "Invalid billing. Use monthly or annual." },
+        { status: 400 }
+      );
+    }
+
+    if (!["card", "credits"].includes(paymentOption)) {
+      return NextResponse.json(
+        { error: "Invalid payment option. Use card or credits." },
         { status: 400 }
       );
     }
@@ -102,16 +147,44 @@ export async function POST(req) {
       );
     }
 
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User account not found" },
+        { status: 404 }
+      );
+    }
+
     const interval = billing === "annual" ? "year" : "month";
     const unitAmount =
       billing === "annual" ? plan.annualAmount : plan.monthlyAmount;
 
-    const trialDays =
+    const standardTrialDays =
       plan.key === "premium" &&
       billing === "monthly" &&
       !page?.stripeTrialUsed
         ? plan.trialDays
         : 0;
+
+    const isStandardTrial =
+      standardTrialDays > 0 &&
+      plan.key === "premium" &&
+      billing === "monthly";
+
+    const hasEnoughCredits = Number(user?.credits || 0) >= unitAmount;
+    const useCredits = paymentOption === "credits" && hasEnoughCredits;
+
+    const creditsTrialDays = useCredits
+      ? getCreditCoveredDays({
+          billing,
+          isTrial: isStandardTrial,
+        })
+      : 0;
+
+    const effectiveTrialDays = useCredits
+      ? creditsTrialDays
+      : standardTrialDays;
 
     const baseUrl = getBaseUrl(req);
 
@@ -120,42 +193,55 @@ export async function POST(req) {
       success_url: `${baseUrl}/account?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing?checkout=cancelled`,
       customer_email: email,
+
+      // always collect a card, even if credits are used
+      payment_method_collection: "always",
+      payment_method_types: ["card"],
+
       billing_address_collection: "auto",
       allow_promotion_codes: true,
+
       metadata: {
         email,
         plan: plan.key,
         billing,
-        isTrial:
-          trialDays > 0 && plan.key === "premium" && billing === "monthly"
-            ? "true"
-            : "false",
+        isTrial: isStandardTrial ? "true" : "false",
+        usedCredits: useCredits ? "true" : "false",
+        creditAmountApplied: useCredits ? String(unitAmount) : "0",
       },
+
       subscription_data: {
         metadata: {
           email,
           plan: plan.key,
           billing,
-          isTrial:
-            trialDays > 0 && plan.key === "premium" && billing === "monthly"
-              ? "true"
-              : "false",
+          isTrial: isStandardTrial ? "true" : "false",
+          usedCredits: useCredits ? "true" : "false",
+          creditAmountApplied: useCredits ? String(unitAmount) : "0",
         },
-        ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
+        ...(effectiveTrialDays > 0
+          ? { trial_period_days: effectiveTrialDays }
+          : {}),
       },
+
       line_items: [
         {
           quantity: 1,
           price_data: {
             currency: "gbp",
             unit_amount: unitAmount,
-            recurring: { interval },
+            recurring: {
+              interval,
+            },
             product_data: {
-              name: `BiolinkHQ ${plan.name} ${billing === "annual" ? "Annual" : "Monthly"}`,
-              description:
-                trialDays > 0
-                  ? "Premium monthly subscription with a 7-day free trial"
-                  : `${plan.name} ${billing} subscription`,
+              name: `BiolinkHQ ${plan.name} ${
+                billing === "annual" ? "Annual" : "Monthly"
+              }`,
+              description: useCredits
+                ? `${plan.name} ${billing} subscription paid first period with site credits. Card required for future renewals.`
+                : isStandardTrial
+                ? "Premium monthly subscription with a 7-day free trial"
+                : `${plan.name} ${billing} subscription`,
               metadata: {
                 plan: plan.key,
                 billing,
@@ -164,12 +250,27 @@ export async function POST(req) {
           },
         },
       ],
+
+      custom_text: {
+        submit: {
+          message: useCredits
+            ? `Your first ${
+                billing === "annual" ? "year" : "billing period"
+              } will be covered using your BiolinkHQ credits. A payment method is still required now, and your saved card will be charged automatically on renewal unless you cancel first.`
+            : isStandardTrial
+            ? "Your 7-day free trial starts today. A payment method is required now, and you will be charged automatically unless you cancel before the trial ends."
+            : "This subscription renews automatically until cancelled. Your saved payment method will be charged each billing period.",
+        },
+      },
     });
 
     return NextResponse.json({
       ok: true,
       url: checkoutSession.url,
       id: checkoutSession.id,
+      usedCredits: useCredits,
+      creditsApplied: useCredits ? unitAmount : 0,
+      creditsAvailable: Number(user?.credits || 0),
     });
   } catch (error) {
     console.error("Stripe checkout error:", error);
