@@ -1,11 +1,19 @@
-import {model, models, Schema} from "mongoose";
+// src/models/User.js
+import { model, models, Schema } from "mongoose";
 
-const UserSchema = new Schema({
-  name: String,
-  email: String,
-  image: String,
-  // Removed emailVerified field to disable email verification
-  // emailVerified: Date,
-});
+const UserSchema = new Schema(
+  {
+    email: { type: String, required: true, unique: true },
 
-export const User = models?.User || model('User', UserSchema);
+    name: { type: String, default: "" },
+    image: { type: String, default: "" },
+
+    discordId: { type: String, default: "" },
+    discordUsername: { type: String, default: "" },
+
+    credits: { type: Number, default: 0, min: 0 },
+  },
+  { timestamps: true }
+);
+
+export const User = models?.User || model("User", UserSchema);
