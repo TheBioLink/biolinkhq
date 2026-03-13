@@ -1,267 +1,305 @@
-// src/components/pricing/PricingClient.js
-"use client";
+// src/app/api/stripe/webhook/route.js
+import { NextResponse } from "next/server";
+import stripe from "@/libs/stripe";
+import { User } from "@/models/User";
+import {
+  applyUpdates,
+  buildFreeState,
+  connectDb,
+  ensurePermanentExclusiveForPage,
+  getBillingFromInterval,
+  getCustomerEmail,
+  getCustomerIdFromObject,
+  getPlanFromAmount,
+  normalizeEmail,
+} from "@/libs/stripe-subscriptions";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
+export const runtime = "nodejs";
 
-const plans = [
-  {
-    key: "free",
-    name: "Free",
-    monthlyPrice: "£0",
-    annualPrice: "£0",
-    subtitle: "Perfect to get started",
-    accent: "border-white/10 bg-[#111827]",
-    button:
-      "bg-white/10 text-white hover:bg-white/15 border border-white/10",
-    cta: "Get Started",
-    href: "/account",
-    features: [
-      "Basic link page",
-      "Custom profile URL",
-      "Basic analytics",
-      "Unlimited links",
-    ],
-  },
-  {
-    key: "basic",
-    name: "Basic",
-    monthlyPrice: "£5",
-    annualPrice: "£50",
-    subtitle: "More control and customization",
-    accent: "border-blue-500/30 bg-[#111827]",
-    button: "bg-blue-600 text-white hover:bg-blue-500",
-    cta: "Upgrade",
-    features: [
-      "Everything in Free",
-      "Priority support",
-      "Custom backgrounds",
-      "Profile customization",
-    ],
-  },
-  {
-    key: "premium",
-    name: "Premium",
-    monthlyPrice: "£20",
-    annualPrice: "£200",
-    subtitle: "Advanced tools for growth",
-    accent:
-      "border-blue-500 bg-gradient-to-b from-blue-500/10 to-[#111827] shadow-[0_0_0_1px_rgba(59,130,246,0.2),0_20px_60px_rgba(37,99,235,0.15)]",
-    button: "bg-blue-600 text-white hover:bg-blue-500",
-    featured: true,
-    badge: "Most Popular",
-    cta: "Upgrade",
-    features: [
-      "Everything in Basic",
-      "Advanced analytics",
-      "Priority page loading",
-      "Premium themes",
-      "7-day free trial on monthly",
-    ],
-  },
-  {
-    key: "exclusive",
-    name: "Exclusive",
-    monthlyPrice: "£100",
-    annualPrice: "£1000",
-    subtitle: "Top-tier access and support",
-    accent:
-      "border-amber-500/40 bg-gradient-to-b from-amber-500/10 to-[#111827]",
-    button: "bg-amber-500 text-black hover:bg-amber-400",
-    cta: "Upgrade",
-    features: [
-      "Everything in Premium",
-      "Custom domain support",
-      "Advanced integrations",
-      "Priority feature access",
-    ],
-  },
-];
+async function resolveEmailFromCheckoutSession(sessionObject) {
+  return normalizeEmail(
+    sessionObject?.customer_details?.email ||
+      sessionObject?.customer_email ||
+      sessionObject?.metadata?.email
+  );
+}
 
-async function startCheckout(plan, billing, setLoading) {
-  try {
-    setLoading(`${plan}:${billing}`);
+async function resolveEmailFromInvoice(invoiceObject) {
+  const direct =
+    invoiceObject?.customer_email ||
+    invoiceObject?.parent?.subscription_details?.metadata?.email ||
+    invoiceObject?.lines?.data?.[0]?.metadata?.email ||
+    invoiceObject?.metadata?.email;
 
-    const res = await fetch("/api/stripe/checkout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ plan, billing }),
-    });
+  if (direct) return normalizeEmail(direct);
 
-    const data = await res.json();
+  const customerId = getCustomerIdFromObject(invoiceObject);
+  return getCustomerEmail(customerId);
+}
 
-    if (!res.ok) {
-      throw new Error(data?.error || data?.details || "Checkout failed");
-    }
+async function resolveEmailFromSubscription(subscriptionObject) {
+  const direct =
+    subscriptionObject?.metadata?.email ||
+    subscriptionObject?.items?.data?.[0]?.metadata?.email;
 
-    if (data?.url) {
-      window.location.href = data.url;
-      return;
-    }
+  if (direct) return normalizeEmail(direct);
 
-    throw new Error("Missing checkout URL");
-  } catch (error) {
-    console.error("Stripe checkout failed:", error);
-    alert(error?.message || "Something went wrong");
-    setLoading(null);
+  const customerId = getCustomerIdFromObject(subscriptionObject);
+  return getCustomerEmail(customerId);
+}
+
+function getPriceFromSubscription(subscriptionObject) {
+  return subscriptionObject?.items?.data?.[0]?.price || null;
+}
+
+function getBillingFromSubscription(subscriptionObject) {
+  const metadataBilling = subscriptionObject?.metadata?.billing;
+
+  if (metadataBilling) return String(metadataBilling).toLowerCase();
+
+  const interval =
+    subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
+
+  return getBillingFromInterval(interval);
+}
+
+function getPlanFromSubscription(subscriptionObject) {
+  const metadataPlan = subscriptionObject?.metadata?.plan;
+
+  if (metadataPlan) return String(metadataPlan).toLowerCase();
+
+  const amount = subscriptionObject?.items?.data?.[0]?.price?.unit_amount ?? 0;
+  const interval =
+    subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
+
+  return getPlanFromAmount(amount, interval);
+}
+
+export async function POST(req) {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "Missing STRIPE_WEBHOOK_SECRET" },
+      { status: 500 }
+    );
   }
-}
 
-function CheckIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      className="mt-0.5 h-5 w-5 flex-none text-blue-400"
-      aria-hidden="true"
-    >
-      <path
-        d="M16.667 5 7.5 14.167 3.333 10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+  const signature = req.headers.get("stripe-signature");
 
-export default function PricingClient() {
-  const [loading, setLoading] = useState(null);
-  const [billing, setBilling] = useState("monthly");
+  if (!signature) {
+    return NextResponse.json(
+      { error: "Missing stripe-signature header" },
+      { status: 400 }
+    );
+  }
 
-  const billingLabel = useMemo(
-    () => (billing === "annual" ? "/year" : "/month"),
-    [billing]
-  );
+  let event;
 
-  return (
-    <div className="px-4 py-16 text-white">
-      <main className="mx-auto max-w-7xl">
-        <div className="mx-auto mb-14 max-w-3xl text-center">
-          <div className="mb-4 inline-flex rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-blue-300">
-            Pricing
-          </div>
+  try {
+    const rawBody = await req.text();
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+  } catch (error) {
+    console.error("Stripe webhook signature verification failed:", error);
+    return NextResponse.json(
+      { error: error?.message || "Invalid webhook signature" },
+      { status: 400 }
+    );
+  }
 
-          <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-            Choose the right plan for your page
-          </h1>
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const sessionObject = event.data.object;
+        const email = await resolveEmailFromCheckoutSession(sessionObject);
+        const customerId = getCustomerIdFromObject(sessionObject);
 
-          <p className="mt-4 text-base text-white/65 sm:text-lg">
-            Start free and upgrade whenever you need more customization,
-            analytics, and premium features.
-          </p>
+        if (sessionObject.mode === "subscription") {
+          await connectDb();
 
-          <div className="mt-8 inline-flex rounded-2xl border border-white/10 bg-[#111827] p-1">
-            <button
-              type="button"
-              onClick={() => setBilling("monthly")}
-              className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
-                billing === "monthly"
-                  ? "bg-blue-600 text-white"
-                  : "text-white/70 hover:text-white"
-              }`}
-            >
-              Monthly
-            </button>
+          const usedCredits =
+            String(sessionObject?.metadata?.usedCredits || "false") === "true";
+          const creditAmountApplied = Number(
+            sessionObject?.metadata?.creditAmountApplied || 0
+          );
 
-            <button
-              type="button"
-              onClick={() => setBilling("annual")}
-              className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
-                billing === "annual"
-                  ? "bg-blue-600 text-white"
-                  : "text-white/70 hover:text-white"
-              }`}
-            >
-              Annual
-            </button>
-          </div>
+          if (usedCredits && creditAmountApplied > 0 && email) {
+            const user = await User.findOne({ email });
+            if (user) {
+              user.credits = Math.max(
+                0,
+                Number(user.credits || 0) - creditAmountApplied
+              );
+              await user.save();
+            }
+          }
 
-          {billing === "monthly" && (
-            <div className="mt-3 text-sm text-blue-300">
-              Premium includes a 7-day free trial
-            </div>
-          )}
-        </div>
+          const updated = await applyUpdates(email, customerId, {
+            stripeCustomerId: customerId || "",
+            stripeCheckoutSessionId: sessionObject.id || "",
+            stripeSubscriptionId:
+              typeof sessionObject.subscription === "string"
+                ? sessionObject.subscription
+                : sessionObject.subscription?.id || "",
+            stripeSubscriptionStatus:
+              sessionObject.payment_status === "paid" ? "active" : "trialing",
+            stripeCurrentPlan: String(
+              sessionObject?.metadata?.plan || "free"
+            ).toLowerCase(),
+            stripeBillingCycle: String(
+              sessionObject?.metadata?.billing || "monthly"
+            ).toLowerCase(),
+            stripeTrialUsed:
+              String(sessionObject?.metadata?.isTrial || "false") === "true",
+            stripeLastEventType: event.type,
+          });
 
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {plans.map((plan) => {
-            const isFree = plan.key === "free";
-            const currentPrice =
-              billing === "annual" ? plan.annualPrice : plan.monthlyPrice;
-            const isLoading = loading === `${plan.key}:${billing}`;
+          await ensurePermanentExclusiveForPage(updated || email);
+        }
 
-            return (
-              <div
-                key={plan.key}
-                className={`relative flex min-h-[590px] flex-col rounded-3xl border p-8 ${plan.accent}`}
-              >
-                {plan.featured && (
-                  <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-400/30 bg-blue-500 px-4 py-1 text-xs font-extrabold uppercase tracking-[0.18em] text-white shadow-lg">
-                    {plan.badge}
-                  </div>
-                )}
+        break;
+      }
 
-                <div>
-                  <h2 className="text-2xl font-black text-white">{plan.name}</h2>
-                  <p className="mt-2 text-sm text-white/60">{plan.subtitle}</p>
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const subscriptionObject = event.data.object;
+        const customerId = getCustomerIdFromObject(subscriptionObject);
+        const email = await resolveEmailFromSubscription(subscriptionObject);
+        const price = getPriceFromSubscription(subscriptionObject);
+        const plan = getPlanFromSubscription(subscriptionObject);
+        const billing = getBillingFromSubscription(subscriptionObject);
+        const isTrial =
+          String(subscriptionObject?.metadata?.isTrial || "false") === "true" ||
+          subscriptionObject?.status === "trialing";
 
-                  <div className="mt-5 flex items-end gap-1">
-                    <span className="text-5xl font-black leading-none text-white">
-                      {currentPrice}
-                    </span>
-                    <span className="pb-1 text-sm text-white/60">
-                      {billingLabel}
-                    </span>
-                  </div>
+        const updated = await applyUpdates(email, customerId, {
+          stripeCustomerId: customerId || "",
+          stripeSubscriptionId: subscriptionObject.id || "",
+          stripeSubscriptionStatus: subscriptionObject.status || "",
+          stripeCurrentPlan:
+            ["active", "trialing", "past_due"].includes(subscriptionObject.status)
+              ? plan
+              : "free",
+          stripeBillingCycle: billing,
+          stripePriceId: price?.id || "",
+          stripeUnitAmount: price?.unit_amount ?? 0,
+          stripeCurrency: price?.currency || "gbp",
+          stripeInterval: price?.recurring?.interval || "month",
+          stripeTrialEndsAt: subscriptionObject.trial_end
+            ? new Date(subscriptionObject.trial_end * 1000)
+            : null,
+          stripeTrialUsed: isTrial ? true : undefined,
+          stripeCurrentPeriodEnd: subscriptionObject.current_period_end
+            ? new Date(subscriptionObject.current_period_end * 1000)
+            : null,
+          stripeCancelAtPeriodEnd: !!subscriptionObject.cancel_at_period_end,
+          stripeLastEventType: event.type,
+        });
 
-                  {plan.key === "premium" && billing === "monthly" && (
-                    <div className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                      7-day free trial
-                    </div>
-                  )}
-                </div>
+        await ensurePermanentExclusiveForPage(updated || email);
 
-                <div className="mt-8 h-px bg-white/10" />
+        break;
+      }
 
-                <ul className="mt-8 space-y-4 text-sm text-white/80">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-3">
-                      <CheckIcon />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+      case "customer.subscription.deleted": {
+        const subscriptionObject = event.data.object;
+        const customerId = getCustomerIdFromObject(subscriptionObject);
+        const email = await resolveEmailFromSubscription(subscriptionObject);
 
-                <div className="mt-auto pt-8">
-                  {isFree ? (
-                    <Link
-                      href={plan.href}
-                      className={`inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition ${plan.button}`}
-                    >
-                      {plan.cta}
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => startCheckout(plan.key, billing, setLoading)}
-                      disabled={loading !== null}
-                      className={`inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${plan.button}`}
-                    >
-                      {isLoading
-                        ? "Loading..."
-                        : `${plan.cta} ${billing === "annual" ? "Yearly" : "Monthly"}`}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </main>
-    </div>
-  );
+        const updated = await applyUpdates(
+          email,
+          customerId,
+          buildFreeState({
+            stripeCustomerId: customerId || "",
+            stripeSubscriptionId: subscriptionObject.id || "",
+            stripeTrialUsed: true,
+            stripeLastEventType: event.type,
+          })
+        );
+
+        await ensurePermanentExclusiveForPage(updated || email);
+
+        break;
+      }
+
+      case "invoice.paid": {
+        const invoiceObject = event.data.object;
+        const customerId = getCustomerIdFromObject(invoiceObject);
+        const email = await resolveEmailFromInvoice(invoiceObject);
+
+        const linePrice = invoiceObject?.lines?.data?.[0]?.price || null;
+        const amount = linePrice?.unit_amount ?? 0;
+        const interval = linePrice?.recurring?.interval || "month";
+        const plan =
+          String(
+            invoiceObject?.parent?.subscription_details?.metadata?.plan || ""
+          ).toLowerCase() || getPlanFromAmount(amount, interval);
+        const billing =
+          String(
+            invoiceObject?.parent?.subscription_details?.metadata?.billing || ""
+          ).toLowerCase() || getBillingFromInterval(interval);
+
+        const updated = await applyUpdates(email, customerId, {
+          stripeCustomerId: customerId || "",
+          stripeSubscriptionStatus: "active",
+          stripeCurrentPlan: plan,
+          stripeBillingCycle: billing,
+          stripeLastInvoiceId: invoiceObject.id || "",
+          stripeLastEventType: event.type,
+        });
+
+        await ensurePermanentExclusiveForPage(updated || email);
+
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoiceObject = event.data.object;
+        const customerId = getCustomerIdFromObject(invoiceObject);
+        const email = await resolveEmailFromInvoice(invoiceObject);
+        const billingReason = String(invoiceObject?.billing_reason || "");
+
+        const shouldDowngrade =
+          billingReason === "subscription_cycle" ||
+          billingReason === "subscription_create";
+
+        const updated = await applyUpdates(
+          email,
+          customerId,
+          shouldDowngrade
+            ? buildFreeState({
+                stripeCustomerId: customerId || "",
+                stripeTrialUsed: true,
+                stripeLastInvoiceId: invoiceObject.id || "",
+                stripeLastEventType: event.type,
+              })
+            : {
+                stripeCustomerId: customerId || "",
+                stripeSubscriptionStatus: "past_due",
+                stripeLastInvoiceId: invoiceObject.id || "",
+                stripeLastEventType: event.type,
+              }
+        );
+
+        await ensurePermanentExclusiveForPage(updated || email);
+
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    console.error("Stripe webhook handler failed:", error);
+
+    return NextResponse.json(
+      {
+        error: "Webhook handler failed",
+        details: error?.message || "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
 }
