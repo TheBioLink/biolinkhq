@@ -1,9 +1,11 @@
 // src/app/api/stripe/webhook/route.js
 import { NextResponse } from "next/server";
 import stripe from "@/libs/stripe";
+import { User } from "@/models/User";
 import {
   applyUpdates,
   buildFreeState,
+  connectDb,
   ensurePermanentExclusiveForPage,
   getBillingFromInterval,
   getCustomerEmail,
@@ -113,6 +115,25 @@ export async function POST(req) {
         const customerId = getCustomerIdFromObject(sessionObject);
 
         if (sessionObject.mode === "subscription") {
+          await connectDb();
+
+          const usedCredits =
+            String(sessionObject?.metadata?.usedCredits || "false") === "true";
+          const creditAmountApplied = Number(
+            sessionObject?.metadata?.creditAmountApplied || 0
+          );
+
+          if (usedCredits && creditAmountApplied > 0 && email) {
+            const user = await User.findOne({ email });
+            if (user) {
+              user.credits = Math.max(
+                0,
+                Number(user.credits || 0) - creditAmountApplied
+              );
+              await user.save();
+            }
+          }
+
           const updated = await applyUpdates(email, customerId, {
             stripeCustomerId: customerId || "",
             stripeCheckoutSessionId: sessionObject.id || "",
