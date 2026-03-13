@@ -1,4 +1,3 @@
-// src/app/api/stripe/webhook/route.js
 import { NextResponse } from "next/server";
 import stripe from "@/libs/stripe";
 import { User } from "@/models/User";
@@ -15,6 +14,7 @@ import {
 } from "@/libs/stripe-subscriptions";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 async function resolveEmailFromCheckoutSession(sessionObject) {
   return normalizeEmail(
@@ -101,6 +101,7 @@ export async function POST(req) {
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (error) {
     console.error("Stripe webhook signature verification failed:", error);
+
     return NextResponse.json(
       { error: error?.message || "Invalid webhook signature" },
       { status: 400 }
@@ -125,6 +126,7 @@ export async function POST(req) {
 
           if (usedCredits && creditAmountApplied > 0 && email) {
             const user = await User.findOne({ email });
+
             if (user) {
               user.credits = Math.max(
                 0,
@@ -197,7 +199,6 @@ export async function POST(req) {
         });
 
         await ensurePermanentExclusiveForPage(updated || email);
-
         break;
       }
 
@@ -218,7 +219,6 @@ export async function POST(req) {
         );
 
         await ensurePermanentExclusiveForPage(updated || email);
-
         break;
       }
 
@@ -230,10 +230,12 @@ export async function POST(req) {
         const linePrice = invoiceObject?.lines?.data?.[0]?.price || null;
         const amount = linePrice?.unit_amount ?? 0;
         const interval = linePrice?.recurring?.interval || "month";
+
         const plan =
           String(
             invoiceObject?.parent?.subscription_details?.metadata?.plan || ""
           ).toLowerCase() || getPlanFromAmount(amount, interval);
+
         const billing =
           String(
             invoiceObject?.parent?.subscription_details?.metadata?.billing || ""
@@ -249,7 +251,6 @@ export async function POST(req) {
         });
 
         await ensurePermanentExclusiveForPage(updated || email);
-
         break;
       }
 
@@ -282,7 +283,6 @@ export async function POST(req) {
         );
 
         await ensurePermanentExclusiveForPage(updated || email);
-
         break;
       }
 
