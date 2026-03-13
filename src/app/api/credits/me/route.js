@@ -1,10 +1,13 @@
-// src/app/api/credits/me/route.js
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { User } from "@/models/User";
 import { normalizeEmail } from "@/libs/credits";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
