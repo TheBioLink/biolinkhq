@@ -1,4 +1,3 @@
-// src/app/api/credits/users/route.js
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
@@ -6,6 +5,10 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { User } from "@/models/User";
 import { Page } from "@/models/Page";
 import { isItsNic, normalizeEmail } from "@/libs/credits";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -29,10 +32,7 @@ export async function GET() {
       .select("_id email discordUsername discordId credits createdAt")
       .lean();
 
-    return NextResponse.json({
-      ok: true,
-      users,
-    });
+    return NextResponse.json({ ok: true, users });
   } catch (error) {
     console.error("Credits users list error:", error);
 
