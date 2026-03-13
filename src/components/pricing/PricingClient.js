@@ -1,305 +1,186 @@
-// src/app/api/stripe/webhook/route.js
-import { NextResponse } from "next/server";
-import stripe from "@/libs/stripe";
-import { User } from "@/models/User";
-import {
-  applyUpdates,
-  buildFreeState,
-  connectDb,
-  ensurePermanentExclusiveForPage,
-  getBillingFromInterval,
-  getCustomerEmail,
-  getCustomerIdFromObject,
-  getPlanFromAmount,
-  normalizeEmail,
-} from "@/libs/stripe-subscriptions";
+"use client";
 
-export const runtime = "nodejs";
+import Link from "next/link";
 
-async function resolveEmailFromCheckoutSession(sessionObject) {
-  return normalizeEmail(
-    sessionObject?.customer_details?.email ||
-      sessionObject?.customer_email ||
-      sessionObject?.metadata?.email
+const plans = [
+  {
+    name: "Free",
+    price: "£0",
+    period: "/month",
+    description: "Perfect for getting started with a clean link-in-bio page.",
+    features: [
+      "Public bio page",
+      "Basic links and buttons",
+      "Profile image and branding",
+      "Essential analytics",
+    ],
+    ctaLabel: "Get started",
+    ctaHref: "/login",
+    featured: false,
+  },
+  {
+    name: "Pro",
+    price: "£9",
+    period: "/month",
+    description: "For creators and brands who want more control and growth.",
+    features: [
+      "Everything in Free",
+      "More page customization",
+      "Better analytics",
+      "Priority access to upgrades",
+      "Enhanced sharing tools",
+    ],
+    ctaLabel: "Upgrade to Pro",
+    ctaHref: "/login",
+    featured: true,
+  },
+  {
+    name: "Business",
+    price: "Custom",
+    period: "",
+    description: "For larger teams that need tailored support and rollout help.",
+    features: [
+      "Everything in Pro",
+      "Team workflows",
+      "Custom onboarding",
+      "Dedicated support",
+    ],
+    ctaLabel: "Contact sales",
+    ctaHref: "/contact",
+    featured: false,
+  },
+];
+
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-5 w-5 flex-none"
+    >
+      <path
+        fillRule="evenodd"
+        d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.312a1 1 0 0 1-1.42 0l-3.75-3.781a1 1 0 1 1 1.42-1.408l3.04 3.066 6.54-6.597a1 1 0 0 1 1.414-.006Z"
+        clipRule="evenodd"
+      />
+    </svg>
   );
 }
 
-async function resolveEmailFromInvoice(invoiceObject) {
-  const direct =
-    invoiceObject?.customer_email ||
-    invoiceObject?.parent?.subscription_details?.metadata?.email ||
-    invoiceObject?.lines?.data?.[0]?.metadata?.email ||
-    invoiceObject?.metadata?.email;
+export default function PricingClient() {
+  return (
+    <main className="mx-auto max-w-7xl px-6 py-16 sm:py-20 lg:px-8">
+      <section className="mx-auto max-w-3xl text-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
+          Pricing
+        </p>
 
-  if (direct) return normalizeEmail(direct);
+        <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+          Simple pricing for your Biolink page
+        </h1>
 
-  const customerId = getCustomerIdFromObject(invoiceObject);
-  return getCustomerEmail(customerId);
-}
+        <p className="mt-4 text-lg leading-8 text-zinc-600">
+          Start free and upgrade when you need more customization, analytics,
+          and support.
+        </p>
+      </section>
 
-async function resolveEmailFromSubscription(subscriptionObject) {
-  const direct =
-    subscriptionObject?.metadata?.email ||
-    subscriptionObject?.items?.data?.[0]?.metadata?.email;
+      <section className="mt-14 grid gap-6 lg:grid-cols-3">
+        {plans.map((plan) => {
+          const featured = plan.featured;
 
-  if (direct) return normalizeEmail(direct);
+          return (
+            <article
+              key={plan.name}
+              className={[
+                "rounded-3xl border p-8 shadow-sm transition",
+                featured
+                  ? "border-zinc-900 bg-zinc-900 text-white"
+                  : "border-zinc-200 bg-white text-zinc-900",
+              ].join(" ")}
+            >
+              {featured ? (
+                <div className="mb-4 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+                  Most popular
+                </div>
+              ) : null}
 
-  const customerId = getCustomerIdFromObject(subscriptionObject);
-  return getCustomerEmail(customerId);
-}
+              <h2 className="text-2xl font-semibold">{plan.name}</h2>
 
-function getPriceFromSubscription(subscriptionObject) {
-  return subscriptionObject?.items?.data?.[0]?.price || null;
-}
+              <div className="mt-4 flex items-end gap-1">
+                <span className="text-4xl font-bold tracking-tight">
+                  {plan.price}
+                </span>
+                {plan.period ? (
+                  <span
+                    className={
+                      featured ? "pb-1 text-zinc-300" : "pb-1 text-zinc-500"
+                    }
+                  >
+                    {plan.period}
+                  </span>
+                ) : null}
+              </div>
 
-function getBillingFromSubscription(subscriptionObject) {
-  const metadataBilling = subscriptionObject?.metadata?.billing;
+              <p
+                className={`mt-4 text-sm leading-6 ${
+                  featured ? "text-zinc-200" : "text-zinc-600"
+                }`}
+              >
+                {plan.description}
+              </p>
 
-  if (metadataBilling) return String(metadataBilling).toLowerCase();
+              <ul className="mt-8 space-y-3">
+                {plan.features.map((feature) => (
+                  <li
+                    key={feature}
+                    className={`flex items-start gap-3 text-sm ${
+                      featured ? "text-zinc-100" : "text-zinc-700"
+                    }`}
+                  >
+                    <span
+                      className={featured ? "text-zinc-100" : "text-zinc-900"}
+                    >
+                      <CheckIcon />
+                    </span>
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
 
-  const interval =
-    subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
-
-  return getBillingFromInterval(interval);
-}
-
-function getPlanFromSubscription(subscriptionObject) {
-  const metadataPlan = subscriptionObject?.metadata?.plan;
-
-  if (metadataPlan) return String(metadataPlan).toLowerCase();
-
-  const amount = subscriptionObject?.items?.data?.[0]?.price?.unit_amount ?? 0;
-  const interval =
-    subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
-
-  return getPlanFromAmount(amount, interval);
-}
-
-export async function POST(req) {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  if (!webhookSecret) {
-    return NextResponse.json(
-      { error: "Missing STRIPE_WEBHOOK_SECRET" },
-      { status: 500 }
-    );
-  }
-
-  const signature = req.headers.get("stripe-signature");
-
-  if (!signature) {
-    return NextResponse.json(
-      { error: "Missing stripe-signature header" },
-      { status: 400 }
-    );
-  }
-
-  let event;
-
-  try {
-    const rawBody = await req.text();
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch (error) {
-    console.error("Stripe webhook signature verification failed:", error);
-    return NextResponse.json(
-      { error: error?.message || "Invalid webhook signature" },
-      { status: 400 }
-    );
-  }
-
-  try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const sessionObject = event.data.object;
-        const email = await resolveEmailFromCheckoutSession(sessionObject);
-        const customerId = getCustomerIdFromObject(sessionObject);
-
-        if (sessionObject.mode === "subscription") {
-          await connectDb();
-
-          const usedCredits =
-            String(sessionObject?.metadata?.usedCredits || "false") === "true";
-          const creditAmountApplied = Number(
-            sessionObject?.metadata?.creditAmountApplied || 0
+              <Link
+                href={plan.ctaHref}
+                className={[
+                  "mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition",
+                  featured
+                    ? "bg-white text-zinc-900 hover:bg-zinc-100"
+                    : "bg-zinc-900 text-white hover:bg-zinc-800",
+                ].join(" ")}
+              >
+                {plan.ctaLabel}
+              </Link>
+            </article>
           );
+        })}
+      </section>
 
-          if (usedCredits && creditAmountApplied > 0 && email) {
-            const user = await User.findOne({ email });
-            if (user) {
-              user.credits = Math.max(
-                0,
-                Number(user.credits || 0) - creditAmountApplied
-              );
-              await user.save();
-            }
-          }
-
-          const updated = await applyUpdates(email, customerId, {
-            stripeCustomerId: customerId || "",
-            stripeCheckoutSessionId: sessionObject.id || "",
-            stripeSubscriptionId:
-              typeof sessionObject.subscription === "string"
-                ? sessionObject.subscription
-                : sessionObject.subscription?.id || "",
-            stripeSubscriptionStatus:
-              sessionObject.payment_status === "paid" ? "active" : "trialing",
-            stripeCurrentPlan: String(
-              sessionObject?.metadata?.plan || "free"
-            ).toLowerCase(),
-            stripeBillingCycle: String(
-              sessionObject?.metadata?.billing || "monthly"
-            ).toLowerCase(),
-            stripeTrialUsed:
-              String(sessionObject?.metadata?.isTrial || "false") === "true",
-            stripeLastEventType: event.type,
-          });
-
-          await ensurePermanentExclusiveForPage(updated || email);
-        }
-
-        break;
-      }
-
-      case "customer.subscription.created":
-      case "customer.subscription.updated": {
-        const subscriptionObject = event.data.object;
-        const customerId = getCustomerIdFromObject(subscriptionObject);
-        const email = await resolveEmailFromSubscription(subscriptionObject);
-        const price = getPriceFromSubscription(subscriptionObject);
-        const plan = getPlanFromSubscription(subscriptionObject);
-        const billing = getBillingFromSubscription(subscriptionObject);
-        const isTrial =
-          String(subscriptionObject?.metadata?.isTrial || "false") === "true" ||
-          subscriptionObject?.status === "trialing";
-
-        const updated = await applyUpdates(email, customerId, {
-          stripeCustomerId: customerId || "",
-          stripeSubscriptionId: subscriptionObject.id || "",
-          stripeSubscriptionStatus: subscriptionObject.status || "",
-          stripeCurrentPlan:
-            ["active", "trialing", "past_due"].includes(subscriptionObject.status)
-              ? plan
-              : "free",
-          stripeBillingCycle: billing,
-          stripePriceId: price?.id || "",
-          stripeUnitAmount: price?.unit_amount ?? 0,
-          stripeCurrency: price?.currency || "gbp",
-          stripeInterval: price?.recurring?.interval || "month",
-          stripeTrialEndsAt: subscriptionObject.trial_end
-            ? new Date(subscriptionObject.trial_end * 1000)
-            : null,
-          stripeTrialUsed: isTrial ? true : undefined,
-          stripeCurrentPeriodEnd: subscriptionObject.current_period_end
-            ? new Date(subscriptionObject.current_period_end * 1000)
-            : null,
-          stripeCancelAtPeriodEnd: !!subscriptionObject.cancel_at_period_end,
-          stripeLastEventType: event.type,
-        });
-
-        await ensurePermanentExclusiveForPage(updated || email);
-
-        break;
-      }
-
-      case "customer.subscription.deleted": {
-        const subscriptionObject = event.data.object;
-        const customerId = getCustomerIdFromObject(subscriptionObject);
-        const email = await resolveEmailFromSubscription(subscriptionObject);
-
-        const updated = await applyUpdates(
-          email,
-          customerId,
-          buildFreeState({
-            stripeCustomerId: customerId || "",
-            stripeSubscriptionId: subscriptionObject.id || "",
-            stripeTrialUsed: true,
-            stripeLastEventType: event.type,
-          })
-        );
-
-        await ensurePermanentExclusiveForPage(updated || email);
-
-        break;
-      }
-
-      case "invoice.paid": {
-        const invoiceObject = event.data.object;
-        const customerId = getCustomerIdFromObject(invoiceObject);
-        const email = await resolveEmailFromInvoice(invoiceObject);
-
-        const linePrice = invoiceObject?.lines?.data?.[0]?.price || null;
-        const amount = linePrice?.unit_amount ?? 0;
-        const interval = linePrice?.recurring?.interval || "month";
-        const plan =
-          String(
-            invoiceObject?.parent?.subscription_details?.metadata?.plan || ""
-          ).toLowerCase() || getPlanFromAmount(amount, interval);
-        const billing =
-          String(
-            invoiceObject?.parent?.subscription_details?.metadata?.billing || ""
-          ).toLowerCase() || getBillingFromInterval(interval);
-
-        const updated = await applyUpdates(email, customerId, {
-          stripeCustomerId: customerId || "",
-          stripeSubscriptionStatus: "active",
-          stripeCurrentPlan: plan,
-          stripeBillingCycle: billing,
-          stripeLastInvoiceId: invoiceObject.id || "",
-          stripeLastEventType: event.type,
-        });
-
-        await ensurePermanentExclusiveForPage(updated || email);
-
-        break;
-      }
-
-      case "invoice.payment_failed": {
-        const invoiceObject = event.data.object;
-        const customerId = getCustomerIdFromObject(invoiceObject);
-        const email = await resolveEmailFromInvoice(invoiceObject);
-        const billingReason = String(invoiceObject?.billing_reason || "");
-
-        const shouldDowngrade =
-          billingReason === "subscription_cycle" ||
-          billingReason === "subscription_create";
-
-        const updated = await applyUpdates(
-          email,
-          customerId,
-          shouldDowngrade
-            ? buildFreeState({
-                stripeCustomerId: customerId || "",
-                stripeTrialUsed: true,
-                stripeLastInvoiceId: invoiceObject.id || "",
-                stripeLastEventType: event.type,
-              })
-            : {
-                stripeCustomerId: customerId || "",
-                stripeSubscriptionStatus: "past_due",
-                stripeLastInvoiceId: invoiceObject.id || "",
-                stripeLastEventType: event.type,
-              }
-        );
-
-        await ensurePermanentExclusiveForPage(updated || email);
-
-        break;
-      }
-
-      default:
-        break;
-    }
-
-    return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error("Stripe webhook handler failed:", error);
-
-    return NextResponse.json(
-      {
-        error: "Webhook handler failed",
-        details: error?.message || "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
+      <section className="mx-auto mt-16 max-w-3xl rounded-3xl border border-zinc-200 bg-zinc-50 px-6 py-8 text-center">
+        <h2 className="text-2xl font-semibold text-zinc-900">
+          Need something custom?
+        </h2>
+        <p className="mt-3 text-zinc-600">
+          We can help with team setup, custom onboarding, and larger rollouts.
+        </p>
+        <div className="mt-6">
+          <Link
+            href="/contact"
+            className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-800"
+          >
+            Talk to sales
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
 }
