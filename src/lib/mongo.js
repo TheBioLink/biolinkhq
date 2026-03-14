@@ -1,27 +1,34 @@
 import mongoose from "mongoose"
 
-const MONGODB_URI = process.env.L_DB
+const URI = process.env.L_DB
 
-if (!MONGODB_URI) {
-  throw new Error("Please define the L_DB environment variable")
+if (!URI) {
+  throw new Error("Missing L_DB env variable")
 }
 
-let cached = global.mongoose
+let cached = global.esportsMongo
 
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null }
+  cached = global.esportsMongo = {
+    conn: null,
+    promise: null
+  }
 }
 
-export async function connectMongo() {
+export async function connectEsportsDB() {
 
   if (cached.conn) {
     return cached.conn
   }
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, {
-      bufferCommands: false,
-    })
+
+    cached.promise = mongoose
+      .createConnection(URI, {
+        bufferCommands: false
+      })
+      .asPromise()
+
   }
 
   cached.conn = await cached.promise
