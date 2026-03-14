@@ -1,28 +1,27 @@
-// src/app/(page)/[uri]/page.js
 import mongoose from "mongoose";
+import Link from "next/link";
 import { Page } from "@/models/Page";
 import { User } from "@/models/User";
 import { Ban } from "@/models/Ban";
 import PublicLinks from "@/components/PublicLinks";
 import ProfileShareButton from "@/components/ProfileShareButton";
 import ProfileAnalyticsTracker from "@/components/analytics/ProfileAnalyticsTracker";
+import { getLinkedProfileModel } from "@/models/LinkedProfile";
 
 const norm = (s) => (s || "").toString().trim().toLowerCase();
 
 function BannedScreen({ reason }) {
   return (
-    <div className="min-h-screen bg-[#0b0f14] px-4 text-white flex items-center justify-center">
-      <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-black/30 p-8 text-center">
+    <div className="min-h-screen bg-[#0a0f1a] px-6 py-12 text-white">
+      <div className="mx-auto max-w-2xl rounded-3xl border border-red-400/20 bg-red-500/10 p-8">
         <h1 className="text-3xl font-black">This page has been banned</h1>
-        <p className="mt-3 text-white/75">This profile is not available.</p>
+        <p className="mt-4 text-white/75">This profile is not available.</p>
 
-        <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-left">
-          <div className="text-xs font-bold uppercase tracking-[0.24em] text-red-200/80">
+        <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-white/40">
             Reason
-          </div>
-          <div className="mt-2 text-sm text-red-50">
-            {reason || "No reason provided."}
-          </div>
+          </p>
+          <p className="mt-2 text-white/90">{reason || "No reason provided."}</p>
         </div>
       </div>
     </div>
@@ -31,10 +30,10 @@ function BannedScreen({ reason }) {
 
 function NotFoundScreen() {
   return (
-    <div className="min-h-screen bg-[#0b0f14] px-4 text-white flex items-center justify-center">
-      <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-black/30 p-8 text-center">
+    <div className="min-h-screen bg-[#0a0f1a] px-6 py-12 text-white">
+      <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-white/5 p-8">
         <h1 className="text-3xl font-black">Not found</h1>
-        <p className="mt-3 text-white/75">This page doesn’t exist.</p>
+        <p className="mt-4 text-white/70">This page doesn’t exist.</p>
       </div>
     </div>
   );
@@ -68,13 +67,11 @@ export default async function PageByUri({ params }) {
   }
 
   const page = await Page.findOne({ uri }).lean();
-
   if (!page) {
     return <NotFoundScreen />;
   }
 
   const ownerEmail = norm(page.owner);
-
   if (ownerEmail) {
     const emailBan = await Ban.findOne({
       type: "email",
@@ -87,6 +84,17 @@ export default async function PageByUri({ params }) {
   }
 
   const user = await User.findOne({ email: page.owner }).lean();
+
+  const linkedPsid = user?.psid || null;
+  let linkedProfile = null;
+
+  if (linkedPsid) {
+    const LinkedProfile = await getLinkedProfileModel();
+    linkedProfile = await LinkedProfile.findOne({
+      psid: linkedPsid,
+      enabled: true,
+    }).lean();
+  }
 
   const bgStyle =
     page.bgType === "image" && page.bgImage
@@ -106,87 +114,79 @@ export default async function PageByUri({ params }) {
   const isOfficial = who === "biolinkhq";
 
   return (
-    <main className="min-h-screen text-white" style={bgStyle}>
-      <ProfileAnalyticsTracker uri={page.uri} />
+    <div className="min-h-screen text-white" style={bgStyle}>
+      <ProfileAnalyticsTracker uri={page.uri} owner={page.owner} />
 
-      <div className="min-h-screen bg-black/40 backdrop-blur-[1px]">
-        <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-8 sm:px-6">
-          <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[#050b18]/80 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+      <div className="min-h-screen bg-black/40 px-4 py-8 backdrop-blur-sm">
+        <div className="mx-auto max-w-2xl">
+          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[#0f1722]/80 shadow-2xl">
             {banner ? (
-              <div className="h-48 w-full sm:h-56">
-                <img
-                  src={banner}
-                  alt={`${page.displayName || page.uri} banner`}
-                  className="h-full w-full object-cover"
-                />
-              </div>
+              <div
+                className="h-40 w-full bg-cover bg-center"
+                style={{ backgroundImage: `url(${banner})` }}
+              />
             ) : (
-              <div className="h-24 w-full bg-gradient-to-r from-blue-900/60 via-indigo-900/50 to-slate-900/60 sm:h-28" />
+              <div className="h-24 w-full bg-gradient-to-r from-blue-600/30 via-cyan-500/20 to-purple-600/30" />
             )}
 
-            <div className="px-5 pb-6 sm:px-8">
-              <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end sm:justify-between">
-                <div className="flex items-end gap-4">
-                  <img
-                    src={avatar}
-                    alt={page.displayName || page.uri}
-                    className="h-24 w-24 rounded-full border-4 border-[#050b18] object-cover shadow-xl sm:h-28 sm:w-28"
-                  />
+            <div className="px-6 pb-8">
+              <div className="-mt-12 flex items-end justify-between gap-4">
+                <img
+                  src={avatar}
+                  alt={page.displayName || user?.name || page.uri}
+                  className="h-24 w-24 rounded-3xl border-4 border-[#0f1722] object-cover shadow-xl"
+                />
 
-                  <div className="pb-1">
-                    <h1 className="text-2xl font-black leading-tight sm:text-3xl">
-                      {page.displayName || user?.name || page.uri}
-                    </h1>
-
-                    {(isFounder || isOfficial) && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {isFounder ? <Badge tone="gold">Founder</Badge> : null}
-                        {isOfficial ? <Badge>Official</Badge> : null}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="sm:pb-2">
-                  <ProfileShareButton
-                    url={`${process.env.NEXTAUTH_URL || ""}/${page.uri}`}
-                    displayName={page.displayName || user?.name || page.uri}
-                    username={page.uri}
-                    bio={page.bio}
-                    avatar={avatar}
-                  />
+                <div className="flex items-center gap-2">
+                  <ProfileShareButton />
                 </div>
               </div>
 
-              <div className="mt-5 space-y-3">
-                {page.location ? (
-                  <div className="text-sm font-medium text-white/65">
-                    {page.location}
+              <div className="mt-5 text-center">
+                <h1 className="text-3xl font-black tracking-tight">
+                  {page.displayName || user?.name || page.uri}
+                </h1>
+
+                {(isFounder || isOfficial) && (
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    {isFounder ? <Badge tone="gold">Founder</Badge> : null}
+                    {isOfficial ? <Badge tone="blue">Official</Badge> : null}
                   </div>
+                )}
+
+                {page.location ? (
+                  <p className="mt-3 text-sm text-white/65">{page.location}</p>
                 ) : null}
 
                 {page.bio ? (
-                  <p className="max-w-2xl text-sm leading-6 text-white/85 sm:text-base">
+                  <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/80">
                     {page.bio}
                   </p>
                 ) : null}
 
-                <div className="text-sm font-semibold text-white/45">
+                <p className="mt-4 text-xs font-black uppercase tracking-[0.24em] text-white/40">
                   /{page.uri}
-                </div>
+                </p>
+
+                {linkedProfile ? (
+                  <div className="mt-4">
+                    <Link
+                      href={`/esports/${linkedPsid}`}
+                      className="inline-flex items-center rounded-2xl border border-blue-400/20 bg-blue-500/10 px-4 py-3 text-sm font-extrabold text-blue-200 hover:bg-blue-500/15"
+                    >
+                      View Esports Identity
+                    </Link>
+                  </div>
+                ) : null}
               </div>
 
               <div className="mt-8">
-                <PublicLinks
-                  uri={page.uri}
-                  buttons={page.buttons}
-                  links={page.links}
-                />
+                <PublicLinks page={page} />
               </div>
             </div>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
