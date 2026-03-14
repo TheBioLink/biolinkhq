@@ -3,8 +3,8 @@ import { getServerSession } from "next-auth";
 import mongoose from "mongoose";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Page } from "@/models/Page";
+import { ensureUserPsid } from "@/lib/psid";
 
-// simple username sanitizer
 function sanitizeUri(input) {
   return (input || "")
     .toString()
@@ -16,31 +16,35 @@ function sanitizeUri(input) {
 
 export async function POST(req) {
   const session = await getServerSession(authOptions);
+
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const owner = session.user.email;
+  const owner = session.user.email.toLowerCase().trim();
   const body = await req.json();
 
   await mongoose.connect(process.env.MONGO_URI);
+  await ensureUserPsid(owner);
 
-  // If updating username/uri, enforce uniqueness
   if (body?.uri) {
     const uri = sanitizeUri(body.uri);
+
     if (!uri || uri.length < 2) {
       return NextResponse.json({ error: "Invalid username" }, { status: 400 });
     }
 
     const taken = await Page.findOne({ uri, owner: { $ne: owner } });
     if (taken) {
-      return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+      return NextResponse.json(
+        { error: "Username already taken" },
+        { status: 409 }
+      );
     }
 
     body.uri = uri;
   }
 
-  // Security: never allow changing owner via client
   delete body.owner;
   delete body._id;
 
