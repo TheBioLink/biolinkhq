@@ -1,12 +1,12 @@
 export const metadata = {
-  title: "Esports Profiles",
-  description: "Discover esports players, coaches, and teams",
-};
+title: "Esports Profiles",
+description: "Discover esports players"
+}
 
 export default function EsportsLayout({ children }) {
-  return (
-    <div className="min-h-screen bg-black text-white">
-      {children}
-    </div>
-  );
+return (
+<div className="min-h-screen bg-black text-white">
+{children}
+</div>
+)
 }
