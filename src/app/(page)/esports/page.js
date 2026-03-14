@@ -1,13 +1,10 @@
 export const dynamic = "force-dynamic"
 
-import { connectMongo } from "@/lib/mongo"
 import { getLinkedProfileModel } from "@/models/LinkedProfile"
 
 export default async function EsportsPage() {
 
-await connectMongo()
-
-const LinkedProfile = getLinkedProfileModel()
+const LinkedProfile = await getLinkedProfileModel()
 
 const players = await LinkedProfile
 .find({ enabled: true })
@@ -15,6 +12,7 @@ const players = await LinkedProfile
 .lean()
 
 return (
+
 <div className="p-10">
 
 <h1 className="text-3xl font-bold mb-8">
@@ -60,5 +58,7 @@ View Profile
 </div>
 
 </div>
+
 )
+
 }
