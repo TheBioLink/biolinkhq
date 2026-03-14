@@ -1,5 +1,3 @@
-// src/components/dashboard/DashboardShell.js
-
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -12,6 +10,7 @@ import {
   faCreditCard,
   faArrowRightFromBracket,
   faArrowLeft,
+  faGamepad,
 } from "@fortawesome/free-solid-svg-icons";
 
 function navClass(active) {
@@ -30,7 +29,6 @@ export default async function DashboardShell({
   const email = (session?.user?.email || "").toLowerCase().trim();
 
   let page = null;
-
   if (email) {
     await mongoose.connect(process.env.MONGO_URI);
     page = await Page.findOne({ owner: email }).lean();
@@ -51,75 +49,81 @@ export default async function DashboardShell({
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#060b14] text-white">
-      <div className="mx-auto flex min-h-screen max-w-[1400px]">
-        {/* Sidebar */}
-        <aside className="w-[260px] border-r border-white/10 bg-white/[0.03] px-6 py-8">
-          <div className="sticky top-8">
-            <div className="mb-8">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-500/80 text-4xl font-black">
-                {avatarLetter}
-              </div>
-
-              <div className="mt-5 text-lg font-bold">
-                /{page?.uri || "account"}
-              </div>
+    <div className="min-h-screen bg-[#0a0f1a] text-white">
+      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 lg:px-8">
+        <aside className="hidden w-72 shrink-0 rounded-3xl border border-white/10 bg-white/5 p-5 lg:block">
+          <div className="mb-6 flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-lg font-black text-blue-300">
+              {avatarLetter}
             </div>
 
-            {/* Navigation */}
-            <nav className="space-y-2">
-              <Link href="/account" className={navClass(activeTab === "page")}>
-                <FontAwesomeIcon icon={faFileLines} fixedWidth className="h-5 w-5" />
-                <span>My Page</span>
-              </Link>
-
-              {showSubscription && (
-                <Link
-                  href="/account/subscription"
-                  className={navClass(activeTab === "subscription")}
-                >
-                  <FontAwesomeIcon icon={faCreditCard} fixedWidth className="h-5 w-5" />
-                  <span>Subscriptions</span>
-                </Link>
-              )}
-
-              <Link
-                href="/account/analytics"
-                className={navClass(activeTab === "analytics")}
-              >
-                <FontAwesomeIcon icon={faChartLine} fixedWidth className="h-5 w-5" />
-                <span>Analytics</span>
-              </Link>
-
-              <Link href="/api/auth/signout" className={navClass(false)}>
-                <FontAwesomeIcon
-                  icon={faArrowRightFromBracket}
-                  fixedWidth
-                  className="h-5 w-5"
-                />
-                <span>Logout</span>
-              </Link>
-            </nav>
-
-            <div className="mt-8 border-t border-white/10 pt-6">
-              <Link
-                href="/"
-                className="flex items-center gap-2 text-sm text-white/55 hover:text-white transition"
-              >
-                <FontAwesomeIcon icon={faArrowLeft} className="h-3 w-3" />
-                <span>Back to website</span>
-              </Link>
+            <div>
+              <p className="text-sm font-bold text-white">
+                {session?.user?.name || "Account"}
+              </p>
+              <p className="text-xs text-white/50">/{page?.uri || "account"}</p>
             </div>
+          </div>
+
+          <nav className="space-y-2">
+            <Link href="/account" className={navClass(activeTab === "page")}>
+              <FontAwesomeIcon icon={faFileLines} className="h-4 w-4" />
+              <span>My Page</span>
+            </Link>
+
+            <Link
+              href="/account/esports"
+              className={navClass(activeTab === "esports")}
+            >
+              <FontAwesomeIcon icon={faGamepad} className="h-4 w-4" />
+              <span>Esports Identity</span>
+            </Link>
+
+            {showSubscription ? (
+              <Link
+                href="/account/subscriptions"
+                className={navClass(activeTab === "subscriptions")}
+              >
+                <FontAwesomeIcon icon={faCreditCard} className="h-4 w-4" />
+                <span>Subscriptions</span>
+              </Link>
+            ) : null}
+
+            <Link
+              href="/account/analytics"
+              className={navClass(activeTab === "analytics")}
+            >
+              <FontAwesomeIcon icon={faChartLine} className="h-4 w-4" />
+              <span>Analytics</span>
+            </Link>
+
+            <Link href="/api/auth/signout" className={navClass(false)}>
+              <FontAwesomeIcon
+                icon={faArrowRightFromBracket}
+                className="h-4 w-4"
+              />
+              <span>Logout</span>
+            </Link>
+          </nav>
+
+          <div className="mt-6 border-t border-white/10 pt-6">
+            <Link
+              href="/"
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-white/60 hover:bg-white/5 hover:text-white transition"
+            >
+              <FontAwesomeIcon icon={faArrowLeft} className="h-4 w-4" />
+              <span>Back to website</span>
+            </Link>
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 px-8 py-10">
-          <h1 className="text-5xl font-black">{title}</h1>
+        <main className="min-w-0 flex-1 rounded-3xl border border-white/10 bg-white/5 p-5 md:p-8">
+          <h1 className="text-3xl font-black tracking-tight">{title}</h1>
+          {subtitle ? (
+            <p className="mt-2 text-sm text-white/60">{subtitle}</p>
+          ) : null}
 
-          {subtitle && <p className="mt-3 text-white/55">{subtitle}</p>}
-
-          <div className="mt-10 space-y-8">{children}</div>
+          <div className="mt-8">{children}</div>
         </main>
       </div>
     </div>
