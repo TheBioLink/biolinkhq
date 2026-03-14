@@ -1,8 +1,14 @@
 import mongoose from "mongoose"
+import { connectEsportsDB } from "@/lib/mongo"
 
-const LinkedProfileSchema = new mongoose.Schema(
-{
-psid: { type: Number, required: true, unique: true, index: true },
+const LinkedProfileSchema = new mongoose.Schema({
+
+psid: {
+type: Number,
+required: true,
+unique: true,
+index: true
+},
 
 owner: {
 type: String,
@@ -66,8 +72,11 @@ default: []
 anonymousBio: { type: String, default: "" },
 
 privacy: {
+
 showRealName: { type: Boolean, default: false },
+
 showLocation: { type: Boolean, default: false },
+
 hidePersonalLinks: { type: Boolean, default: true },
 
 contactMode: {
@@ -75,13 +84,16 @@ type: String,
 enum: ["public", "request-only", "private"],
 default: "request-only"
 }
+
 }
 
-},
-{ timestamps: true }
-)
+},{ timestamps:true })
 
-export function getLinkedProfileModel() {
-return mongoose.models.LinkedProfile ||
-mongoose.model("LinkedProfile", LinkedProfileSchema)
+export async function getLinkedProfileModel() {
+
+const conn = await connectEsportsDB()
+
+return conn.models.LinkedProfile ||
+conn.model("LinkedProfile", LinkedProfileSchema)
+
 }
