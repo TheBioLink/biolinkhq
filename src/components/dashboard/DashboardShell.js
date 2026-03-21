@@ -67,7 +67,7 @@ export default async function DashboardShell({
 
             {showSubscription ? (
               <Link
-                href="/account/subscriptions"
+                href="/account/subscription"
                 className={navClass(activeTab === "subscriptions")}
               >
                 <FontAwesomeIcon icon={faCreditCard} className="h-4 w-4" />
