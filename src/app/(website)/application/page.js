@@ -8,7 +8,7 @@ export default function ApplicationsOverview() {
       title: "Social Media Manager (Profit-Share)",
       description:
         "Drive revenue across our social channels. Earn a split of profits generated from the accounts you manage and grow. You may propose new social accounts (using only company-approved emails). Final setup and full ownership retained by BiolinkHQ.",
-      requirements: "Proven revenue-driving experience required. Rigorous 30-question screening.",
+      requirements: "Proven revenue-driving experience required. Rigorous 10-question screening.",
       badge: "High-Earning • Remote • Selective",
     },
     // You can easily add more jobs here later
