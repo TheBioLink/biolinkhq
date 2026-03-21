@@ -10,7 +10,6 @@ import {
   faCreditCard,
   faArrowRightFromBracket,
   faArrowLeft,
-  faGamepad,
 } from "@fortawesome/free-solid-svg-icons";
 
 function navClass(active) {
@@ -27,19 +26,16 @@ export default async function DashboardShell({
 }) {
   const session = await getServerSession(authOptions);
   const email = (session?.user?.email || "").toLowerCase().trim();
-
   let page = null;
   if (email) {
     await mongoose.connect(process.env.MONGO_URI);
     page = await Page.findOne({ owner: email }).lean();
   }
-
   const showSubscription =
     page?.permanentPlan === "exclusive" ||
     ["active", "trialing", "past_due"].includes(
       String(page?.stripeSubscriptionStatus || "").toLowerCase()
     );
-
   const avatarLetter = (
     session?.user?.name ||
     session?.user?.email ||
@@ -56,7 +52,6 @@ export default async function DashboardShell({
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/15 text-lg font-black text-blue-300">
               {avatarLetter}
             </div>
-
             <div>
               <p className="text-sm font-bold text-white">
                 {session?.user?.name || "Account"}
@@ -64,19 +59,10 @@ export default async function DashboardShell({
               <p className="text-xs text-white/50">/{page?.uri || "account"}</p>
             </div>
           </div>
-
           <nav className="space-y-2">
             <Link href="/account" className={navClass(activeTab === "page")}>
               <FontAwesomeIcon icon={faFileLines} className="h-4 w-4" />
               <span>My Page</span>
-            </Link>
-
-            <Link
-              href="/account/esports"
-              className={navClass(activeTab === "esports")}
-            >
-              <FontAwesomeIcon icon={faGamepad} className="h-4 w-4" />
-              <span>Esports Identity</span>
             </Link>
 
             {showSubscription ? (
@@ -105,7 +91,6 @@ export default async function DashboardShell({
               <span>Logout</span>
             </Link>
           </nav>
-
           <div className="mt-6 border-t border-white/10 pt-6">
             <Link
               href="/"
@@ -116,13 +101,11 @@ export default async function DashboardShell({
             </Link>
           </div>
         </aside>
-
         <main className="min-w-0 flex-1 rounded-3xl border border-white/10 bg-white/5 p-5 md:p-8">
           <h1 className="text-3xl font-black tracking-tight">{title}</h1>
           {subtitle ? (
             <p className="mt-2 text-sm text-white/60">{subtitle}</p>
           ) : null}
-
           <div className="mt-8">{children}</div>
         </main>
       </div>
