@@ -1,19 +1,55 @@
 // src/app/application/[jobId]/page.js
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 
-// ── 30 HARD SCREENING QUESTIONS ──
+// ── 10 PROFESSIONAL SCREENING QUESTIONS ──
 const questions = [
-  // (your full list of 30 questions here - kept the same)
-  { id: "q1", question: "How many years of full-time professional experience do you have managing social media for brands/clients that generated measurable revenue or profit growth? List 2–3 specific examples with exact metrics (e.g. +$X revenue, +Y% ROAS).", type: "textarea" },
-  // ... rest of questions q2 to q30 ...
-  { id: "q30", question: "In 500 words or less: Sell yourself as the best possible social media manager for a profit-focused, high-growth project like BiolinkHQ.", type: "textarea" },
+  {
+    id: "q1",
+    question: "How many years of full-time experience do you have managing social media accounts that directly generated revenue or profit? Provide 2–3 specific examples with metrics (revenue, ROAS, CPA, etc.).",
+  },
+  {
+    id: "q2",
+    question: "What is the largest monthly ad spend you have personally managed? What average ROAS or ROI did you achieve across those campaigns?",
+  },
+  {
+    id: "q3",
+    question: "Describe your most profitable social media campaign to date (revenue or profit generated). Include platforms, budget, key strategies, exact results and why it succeeded.",
+  },
+  {
+    id: "q4",
+    question: "Provide a case study where you took over an underperforming or declining account and turned it around. Include before/after metrics.",
+  },
+  {
+    id: "q5",
+    question: "What is your proven framework for scaling follower growth while maintaining or improving engagement rate and revenue performance? Include real numbers.",
+  },
+  {
+    id: "q6",
+    question: "Rank the platforms where you have the strongest expertise for driving direct sales/conversions in 2025–2026. Provide recent examples.",
+  },
+  {
+    id: "q7",
+    question: "How do you adapt strategy when a major platform algorithm changes significantly? Give a concrete example from the past 12 months.",
+  },
+  {
+    id: "q8",
+    question: "Describe your process for identifying and scaling high-ROI UGC or influencer partnerships. How do you measure and optimize these?",
+  },
+  {
+    id: "q9",
+    question: "What KPIs do you prioritize when the business goal is profit rather than vanity metrics? How do you report these to stakeholders?",
+  },
+  {
+    id: "q10",
+    question: "In 400 words or less: Why are you the best fit to drive revenue growth for BiolinkHQ through social media? Sell us on your value.",
+  },
 ];
 
-const MAX_MESSAGE_LENGTH = 1800; // Discord safe limit per message
+const MAX_EMBED_DESCRIPTION = 3900; // Discord embed description limit
 
 export default function JobApplication() {
   const params = useParams();
@@ -35,11 +71,6 @@ export default function JobApplication() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [copyIdSuccess, setCopyIdSuccess] = useState(false);
 
-  // Track character counts for each answer
-  const [charCounts, setCharCounts] = useState(
-    questions.reduce((acc, q) => ({ ...acc, [q.id]: 0 }), {})
-  );
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -47,7 +78,6 @@ export default function JobApplication() {
 
   const handleAnswerChange = (id, value) => {
     setAnswers((prev) => ({ ...prev, [id]: value }));
-    setCharCounts((prev) => ({ ...prev, [id]: value.length }));
   };
 
   const isFormValid = () => {
@@ -59,43 +89,49 @@ export default function JobApplication() {
     );
   };
 
-  const formatBasicInfo = () => {
-    return `💼 **APPLICATION ID:** ${applicationId}\n\n` +
-           `**Position:** Social Media Manager (Profit-Share)\n` +
-           `**Submitted:** ${new Date().toUTCString()}\n\n` +
-           `**Full Name:** ${formData.fullName || "—"} \n` +
-           `**Email:** ${formData.email || "—"} \n` +
-           `**Discord Username:** ${formData.discordUsername || "—"} \n` +
-           `**BiolinkHQ Username:** ${formData.biolinkHqUsername || "—"} \n\n` +
-           `**Compensation Model:** Profit split from revenue generated\n` +
-           `**Account Creation Rules:** Applicant may propose new accounts using only approved company emails. Final setup and ownership remain with BiolinkHQ.\n\n`;
+  const createBasicEmbed = () => {
+    return {
+      title: `Application ID: ${applicationId}`,
+      description: `**Position:** Social Media Manager (Profit-Share)\n**Submitted:** ${new Date().toUTCString()}\n\n**Full Name:** ${formData.fullName || "—"}\n**Email:** ${formData.email || "—"}\n**Discord:** ${formData.discordUsername || "—"}\n**BiolinkHQ Username:** ${formData.biolinkHqUsername || "—"}\n\n**Compensation:** Profit split from revenue generated\n**Account Rules:** New accounts proposed by applicant, created with approved emails only, final setup & ownership by BiolinkHQ`,
+      color: 0x1E90FF, // Blue
+      footer: { text: "BiolinkHQ Application" },
+    };
   };
 
-  const chunkAnswers = () => {
-    let text = "📋 **Detailed Answers**\n\n";
+  const createAnswersEmbeds = () => {
+    const embeds = [];
+    let currentDescription = "";
+
     questions.forEach((q, i) => {
-      text += `**Q${i + 1}:** ${q.question}\n**Answer:** ${answers[q.id]?.trim() || "—"} \n\n──────────────────────────────\n\n`;
+      const answer = answers[q.id]?.trim() || "—";
+      const entry = `**Q${i + 1}:** ${q.question}\n**Answer:** ${answer}\n\n`;
+
+      if (currentDescription.length + entry.length > MAX_EMBED_DESCRIPTION) {
+        embeds.push({
+          title: embeds.length === 0 ? "Application Answers (Part 1)" : `Answers (Part ${embeds.length + 1})`,
+          description: currentDescription.trim(),
+          color: 0x00BFFF,
+        });
+        currentDescription = "";
+      }
+
+      currentDescription += entry;
     });
 
-    const chunks = [];
-    let current = "";
-    const lines = text.split("\n");
-
-    for (const line of lines) {
-      if (current.length + line.length + 1 > MAX_MESSAGE_LENGTH) {
-        chunks.push(current.trim());
-        current = "";
-      }
-      current += line + "\n";
+    if (currentDescription.trim()) {
+      embeds.push({
+        title: embeds.length === 0 ? "Application Answers" : `Answers (Part ${embeds.length + 1})`,
+        description: currentDescription.trim(),
+        color: 0x00BFFF,
+      });
     }
-    if (current.trim()) chunks.push(current.trim());
 
-    return chunks;
+    return embeds;
   };
 
-  const sendToWebhook = async (content) => {
+  const sendToWebhook = async (embeds) => {
     const payload = {
-      content,
+      embeds,
       username: "BiolinkHQ Applications",
       avatar_url: "https://biolinkhq.com/favicon.ico",
     };
@@ -107,8 +143,8 @@ export default function JobApplication() {
     });
 
     if (!res.ok) {
-      const errorText = await res.text().catch(() => "Unknown error");
-      throw new Error(`Webhook error ${res.status}: ${errorText}`);
+      const errorText = await res.text().catch(() => "Unknown");
+      throw new Error(`Webhook failed (${res.status}): ${errorText}`);
     }
   };
 
@@ -124,29 +160,32 @@ export default function JobApplication() {
     setLoading(true);
 
     try {
-      // Send basic info first
-      await sendToWebhook(formatBasicInfo());
+      // Send basic info embed
+      await sendToWebhook([createBasicEmbed()]);
 
-      // Send answers in chunks
-      const chunks = chunkAnswers();
-      for (const chunk of chunks) {
-        await sendToWebhook(chunk);
-        // Small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 1200));
+      // Send answers embeds
+      const answerEmbeds = createAnswersEmbeds();
+      for (const embed of answerEmbeds) {
+        await sendToWebhook([embed]);
+        await new Promise((r) => setTimeout(r, 1500)); // avoid rate limits
       }
 
       setSubmitted(true);
     } catch (err) {
-      console.error("Submission failed:", err);
-      setErrorMessage(err.message || "Failed to submit application. Please try again later.");
+      console.error("Submission error:", err);
+      setErrorMessage(err.message || "Failed to submit application. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const copyFullApp = () => {
-    const fullText = formatBasicInfo() + chunkAnswers().join("\n\n");
-    navigator.clipboard.writeText(fullText);
+    let text = `Application ID: ${applicationId}\n\n`;
+    text += `Name: ${formData.fullName || "—"}\nEmail: ${formData.email || "—"}\nDiscord: ${formData.discordUsername || "—"}\nBiolinkHQ: ${formData.biolinkHqUsername || "—"}\n\n`;
+    questions.forEach((q, i) => {
+      text += `Q${i + 1}: ${q.question}\nA: ${answers[q.id]?.trim() || "—"}\n\n`;
+    });
+    navigator.clipboard.writeText(text);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2500);
   };
@@ -162,12 +201,8 @@ export default function JobApplication() {
       <div className="min-h-screen bg-[#0a0f1a] text-white flex items-center justify-center px-4 py-12">
         <div className="text-center max-w-lg">
           <h1 className="text-4xl font-black mb-6">Position Not Found</h1>
-          <p className="text-xl text-white/70 mb-8">
-            This job opening does not exist or is no longer available.
-          </p>
-          <Link href="/application" className="text-blue-400 hover:text-blue-300 text-lg underline">
-            ← View All Open Positions
-          </Link>
+          <p className="text-xl text-white/70 mb-8">This job opening does not exist or is no longer available.</p>
+          <Link href="/application" className="text-blue-400 hover:text-blue-300 text-lg underline">← View All Open Positions</Link>
         </div>
       </div>
     );
@@ -177,19 +212,17 @@ export default function JobApplication() {
     return (
       <div className="min-h-screen bg-[#0a0f1a] text-white flex items-center justify-center px-4 py-12">
         <div className="max-w-3xl text-center">
-          <div className="text-7xl mb-8">🎯</div>
-          <h1 className="text-5xl font-black mb-6">Application Submitted Successfully</h1>
-          <p className="text-xl text-white/80 mb-10">
-            Thank you for your submission. Only top candidates will be contacted via Discord.
-          </p>
+          <div className="text-7xl mb-8">✅</div>
+          <h1 className="text-5xl font-black mb-6">Application Received</h1>
+          <p className="text-xl text-white/80 mb-10">Thank you. Only top candidates will be contacted.</p>
 
           <div className="bg-gradient-to-br from-blue-900/30 to-black/50 border border-blue-500/40 rounded-2xl p-8 mb-10">
-            <p className="text-2xl font-bold text-blue-300 mb-6">Your Application ID</p>
+            <p className="text-2xl font-bold text-blue-300 mb-4">Your Application ID</p>
             <div className="text-2xl font-mono bg-black/60 p-5 rounded-xl mb-6 break-all select-all">
               {applicationId}
             </div>
             <p className="text-white/80 text-lg mb-6">
-              **Important:** Save this ID. When we reach out, please provide it to verify your application and protect against impersonation.
+              **Save this ID.** When we contact you, provide this ID to confirm legitimacy.
             </p>
             <button
               onClick={copyAppId}
@@ -206,9 +239,7 @@ export default function JobApplication() {
             {copySuccess ? "✅ Full Application Copied!" : "Copy Full Application (Backup)"}
           </button>
 
-          <Link href="/application" className="text-blue-400 hover:text-blue-300 text-lg underline">
-            ← Return to Open Positions
-          </Link>
+          <Link href="/application" className="text-blue-400 hover:text-blue-300 text-lg underline">← Back to Open Positions</Link>
         </div>
       </div>
     );
@@ -219,16 +250,16 @@ export default function JobApplication() {
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-16">
           <div className="inline-block bg-blue-900/40 text-blue-300 px-6 py-2 rounded-full font-semibold tracking-wide mb-6">
-            Selective Recruitment – Profit-Share Opportunity
+            Selective Recruitment – Profit-Share Role
           </div>
           <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-6">
             Social Media Manager Application
           </h1>
           <p className="text-xl text-white/80 max-w-3xl mx-auto mb-6">
-            We are looking for exceptional talent who can drive real revenue growth. This is a high-bar, selective process.
+            High-bar process for revenue-focused talent. Only exceptional applications will proceed.
           </p>
           <p className="text-lg text-blue-300 font-medium">
-            After submission you will receive a unique Application ID for verification.
+            Upon submission you will receive a unique Application ID for verification.
           </p>
         </div>
 
@@ -241,7 +272,7 @@ export default function JobApplication() {
         <form onSubmit={handleSubmit} className="space-y-12">
           {/* Basic Information */}
           <section className="bg-black/30 border border-white/10 rounded-3xl p-8">
-            <h2 className="text-2xl font-bold mb-6 text-blue-300">Personal Information</h2>
+            <h2 className="text-2xl font-bold mb-6 text-blue-300">Applicant Information</h2>
             <div className="grid md:grid-cols-2 gap-8">
               <div>
                 <label className="block text-sm font-medium mb-2 text-white/80">Full Name</label>
@@ -299,11 +330,11 @@ export default function JobApplication() {
             </div>
           </section>
 
-          {/* Screening Questions */}
+          {/* Questions */}
           <section className="space-y-10">
             <h2 className="text-2xl font-bold text-center text-blue-300">Screening Questions</h2>
             <p className="text-center text-white/60 mb-8">
-              All questions are required. Provide detailed, metric-driven responses.
+              Provide detailed, metric-driven answers. All questions required.
             </p>
 
             {questions.map((q, i) => (
@@ -314,13 +345,10 @@ export default function JobApplication() {
                 <textarea
                   value={answers[q.id]}
                   onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                  className="w-full h-40 bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-y min-h-[140px] transition"
-                  placeholder="Provide detailed, specific answers with metrics where possible..."
+                  className="w-full h-40 bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-base focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-y min-h-[160px] transition"
+                  placeholder="Be specific, include numbers, platforms, results..."
                   required
                 />
-                <div className="mt-2 text-right text-sm text-white/50">
-                  {charCounts[q.id]} characters
-                </div>
               </div>
             ))}
           </section>
@@ -343,13 +371,13 @@ export default function JobApplication() {
                   Submitting...
                 </span>
               ) : (
-                "Submit Application – Drive Profits"
+                "Submit Application"
               )}
             </button>
 
             {!isFormValid() && (
               <p className="mt-4 text-red-400 text-sm">
-                Please complete all required fields before submitting.
+                Please complete all required fields.
               </p>
             )}
           </div>
