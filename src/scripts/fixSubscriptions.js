@@ -1,7 +1,7 @@
 // scripts/fixSubscriptions.js
 
 import mongoose from "mongoose";
-import { User } from "../src/models/User.js";
+import { User } from "../models/User.js";
 import { computeSubscriptionStatus } from "../src/libs/subscriptionStatus.js";
 
 async function run() {
