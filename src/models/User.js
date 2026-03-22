@@ -1,4 +1,6 @@
-import { model, models, Schema } from "mongoose";
+import mongoose from "mongoose";
+
+const { model, models, Schema } = mongoose;
 
 // 🔥 Embedded subscription schema
 const SubscriptionSchema = new Schema(
@@ -41,15 +43,14 @@ const UserSchema = new Schema(
     discordUsername: { type: String, default: "" },
     credits: { type: Number, default: 0, min: 0 },
 
-    // Shared numeric ID
     psid: { type: Number, unique: true, sparse: true, index: true },
 
-    // 🔥 ADD THIS (subscription system)
+    // 🔥 subscription system
     subscription: {
       type: SubscriptionSchema,
       default: () => ({
         status: "trialing",
-        trial_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        trial_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         current_period_end: null,
         has_paid: false,
         cancelled_at: null,
