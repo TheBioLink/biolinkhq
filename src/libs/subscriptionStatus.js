@@ -3,6 +3,7 @@
 export function computeSubscriptionStatus(user) {
   const now = new Date();
 
+  // No user or no subscription → expired
   if (!user || !user.subscription) {
     return "expired";
   }
@@ -19,7 +20,8 @@ export function computeSubscriptionStatus(user) {
     return "trialing";
   }
 
-  // 🔥 MAIN FIX: trial ended + no payment
+  // 🔥 CRITICAL FIX:
+  // Trial ended AND no payment → expired
   if (
     (!sub.has_paid || sub.has_paid === false) &&
     (!sub.trial_end || now > new Date(sub.trial_end))
@@ -27,18 +29,24 @@ export function computeSubscriptionStatus(user) {
     return "expired";
   }
 
-  // Active subscription (paid)
+  // Paid + still within billing period → active
   if (
+    sub.has_paid &&
     sub.current_period_end &&
     now < new Date(sub.current_period_end)
   ) {
     return "active";
   }
 
-  // Payment failed / expired billing cycle
-  if (sub.has_paid && sub.current_period_end && now > new Date(sub.current_period_end)) {
+  // Paid but period expired → past_due
+  if (
+    sub.has_paid &&
+    sub.current_period_end &&
+    now > new Date(sub.current_period_end)
+  ) {
     return "past_due";
   }
 
+  // Fallback
   return "expired";
 }
