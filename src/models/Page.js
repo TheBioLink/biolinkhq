@@ -1,8 +1,23 @@
 // src/models/Page.js
 import { model, models, Schema } from "mongoose";
 
+const CreditTransactionSchema = new Schema(
+  {
+    amount: { type: Number, required: true }, // + or -
+    type: {
+      type: String,
+      enum: ["grant", "spend", "refund"],
+      required: true,
+    },
+    note: { type: String, default: "" },
+    givenBy: { type: String, default: "" }, // admin email (itsnicbtw)
+  },
+  { timestamps: true }
+);
+
 const PageSchema = new Schema(
   {
+    // ================= BASIC =================
     uri: { type: String, required: true, min: 1, unique: true },
     owner: { type: String, required: true },
 
@@ -29,6 +44,18 @@ const PageSchema = new Schema(
       default: [],
     },
 
+    // ================= 💰 CREDITS SYSTEM =================
+    credits: { type: Number, default: 0 },
+
+    creditTransactions: {
+      type: [CreditTransactionSchema],
+      default: [],
+    },
+
+    // who can GIVE credits (only itsnicbtw)
+    isAdmin: { type: Boolean, default: false },
+
+    // ================= 💳 STRIPE =================
     stripeCustomerId: { type: String, default: "" },
     stripeCheckoutSessionId: { type: String, default: "" },
     stripeSubscriptionId: { type: String, default: "" },
@@ -55,10 +82,26 @@ const PageSchema = new Schema(
     stripeLastInvoiceId: { type: String, default: "" },
     stripeLastEventType: { type: String, default: "" },
 
+    // ================= 🔒 SPECIAL ACCESS =================
     permanentPlan: {
       type: String,
       enum: ["", "exclusive"],
       default: "",
+    },
+
+    // ================= 📊 ANALYTICS =================
+    totalViews: { type: Number, default: 0 },
+    totalClicks: { type: Number, default: 0 },
+
+    analytics: {
+      type: [
+        {
+          date: { type: Date },
+          views: { type: Number, default: 0 },
+          clicks: { type: Number, default: 0 },
+        },
+      ],
+      default: [],
     },
   },
   { timestamps: true }
