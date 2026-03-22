@@ -1,26 +1,36 @@
-// scripts/fixSubscriptions.js
-
 import mongoose from "mongoose";
 import { User } from "../models/User.js";
-import { computeSubscriptionStatus } from "../src/libs/subscriptionStatus.js";
+import { computeSubscriptionStatus } from "../libs/subscriptionStatus.js";
 
 async function run() {
-  await mongoose.connect(process.env.MONGO_URI);
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
 
-  const users = await User.find();
+    console.log("Connected to DB");
 
-  for (const user of users) {
-    const status = computeSubscriptionStatus(user);
+    const users = await User.find();
 
-    if (user.subscription.status !== status) {
-      user.subscription.status = status;
-      await user.save();
+    for (const user of users) {
+      const status = computeSubscriptionStatus(user);
 
-      console.log(`Fixed ${user.email}: ${status}`);
+      if (!user.subscription) {
+        user.subscription = {};
+      }
+
+      if (user.subscription.status !== status) {
+        user.subscription.status = status;
+        await user.save();
+
+        console.log(`Fixed ${user.email}: ${status}`);
+      }
     }
-  }
 
-  process.exit();
+    console.log("Done fixing subscriptions");
+    process.exit(0);
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
 }
 
 run();
