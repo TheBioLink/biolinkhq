@@ -1,288 +1,185 @@
+// src/app/api/stripe/webhook/route.js
 import { NextResponse } from "next/server";
-import stripe from "@/libs/stripe";
-import { User } from "@/models/User";
-import {
-  applyUpdates,
-  buildFreeState,
-  connectDb,
-  ensurePermanentExclusiveForPage,
-  getBillingFromInterval,
-  getCustomerEmail,
-  getCustomerIdFromObject,
-  getPlanFromAmount,
-  normalizeEmail,
-} from "@/libs/stripe-subscriptions";
+import Stripe from "stripe";
+import { connectDb, applyUpdates, ensurePermanentExclusiveForPage, buildFreeState, normalizeEmail, getCustomerIdFromObject } from "@/libs/stripe-subscriptions";
+import { Page } from "@/models/Page";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function resolveEmailFromCheckoutSession(sessionObject) {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-08-16",
+});
+
+// Utility: resolve email from Stripe object
+async function resolveEmail(stripeObject) {
+  if (!stripeObject) return "";
   return normalizeEmail(
-    sessionObject?.customer_details?.email ||
-      sessionObject?.customer_email ||
-      sessionObject?.metadata?.email
+    stripeObject?.customer_email ||
+      stripeObject?.customer_details?.email ||
+      stripeObject?.metadata?.email
   );
 }
 
-async function resolveEmailFromInvoice(invoiceObject) {
-  const direct =
-    invoiceObject?.customer_email ||
-    invoiceObject?.parent?.subscription_details?.metadata?.email ||
-    invoiceObject?.lines?.data?.[0]?.metadata?.email ||
-    invoiceObject?.metadata?.email;
-
-  if (direct) return normalizeEmail(direct);
-
-  const customerId = getCustomerIdFromObject(invoiceObject);
-  return getCustomerEmail(customerId);
-}
-
-async function resolveEmailFromSubscription(subscriptionObject) {
-  const direct =
-    subscriptionObject?.metadata?.email ||
-    subscriptionObject?.items?.data?.[0]?.metadata?.email;
-
-  if (direct) return normalizeEmail(direct);
-
-  const customerId = getCustomerIdFromObject(subscriptionObject);
-  return getCustomerEmail(customerId);
-}
-
-function getPriceFromSubscription(subscriptionObject) {
-  return subscriptionObject?.items?.data?.[0]?.price || null;
-}
-
-function getBillingFromSubscription(subscriptionObject) {
-  const metadataBilling = subscriptionObject?.metadata?.billing;
-
-  if (metadataBilling) return String(metadataBilling).toLowerCase();
-
-  const interval =
-    subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
-
-  return getBillingFromInterval(interval);
-}
-
-function getPlanFromSubscription(subscriptionObject) {
-  const metadataPlan = subscriptionObject?.metadata?.plan;
-
-  if (metadataPlan) return String(metadataPlan).toLowerCase();
-
-  const amount = subscriptionObject?.items?.data?.[0]?.price?.unit_amount ?? 0;
-  const interval =
-    subscriptionObject?.items?.data?.[0]?.price?.recurring?.interval || "month";
-
-  return getPlanFromAmount(amount, interval);
-}
-
 export async function POST(req) {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const sig = req.headers.get("stripe-signature");
+  if (!sig) return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
 
-  if (!webhookSecret) {
-    return NextResponse.json(
-      { error: "Missing STRIPE_WEBHOOK_SECRET" },
-      { status: 500 }
-    );
-  }
-
-  const signature = req.headers.get("stripe-signature");
-
-  if (!signature) {
-    return NextResponse.json(
-      { error: "Missing stripe-signature header" },
-      { status: 400 }
-    );
-  }
+  const rawBody = await req.text();
 
   let event;
-
   try {
-    const rawBody = await req.text();
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch (error) {
-    console.error("Stripe webhook signature verification failed:", error);
-
-    return NextResponse.json(
-      { error: error?.message || "Invalid webhook signature" },
-      { status: 400 }
-    );
+    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error("⚠️ Stripe webhook signature verification failed:", err.message);
+    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 400 });
   }
 
   try {
+    await connectDb();
+
     switch (event.type) {
+      // New subscription completed via checkout
       case "checkout.session.completed": {
-        const sessionObject = event.data.object;
-        const email = await resolveEmailFromCheckoutSession(sessionObject);
-        const customerId = getCustomerIdFromObject(sessionObject);
+        const session = event.data.object;
+        if (session.mode !== "subscription") break;
 
-        if (sessionObject.mode === "subscription") {
-          await connectDb();
+        const email = await resolveEmail(session);
+        const customerId = getCustomerIdFromObject(session);
 
-          const usedCredits =
-            String(sessionObject?.metadata?.usedCredits || "false") === "true";
-          const creditAmountApplied = Number(
-            sessionObject?.metadata?.creditAmountApplied || 0
-          );
+        await applyUpdates(email, customerId, {
+          stripeCustomerId: customerId || "",
+          stripeCheckoutSessionId: session.id,
+          stripeSubscriptionId:
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription?.id || "",
+          stripeSubscriptionStatus:
+            session.payment_status === "paid" ? "active" : "trialing",
+          stripeCurrentPlan: String(session?.metadata?.plan || "free").toLowerCase(),
+          stripeBillingCycle: String(session?.metadata?.billing || "monthly").toLowerCase(),
+          stripeTrialUsed:
+            String(session?.metadata?.isTrial || "false") === "true",
+          stripeLastEventType: event.type,
+        });
 
-          if (usedCredits && creditAmountApplied > 0 && email) {
-            const user = await User.findOne({ email });
-
-            if (user) {
-              user.credits = Math.max(
-                0,
-                Number(user.credits || 0) - creditAmountApplied
-              );
-              await user.save();
-            }
-          }
-
-          const updated = await applyUpdates(email, customerId, {
-            stripeCustomerId: customerId || "",
-            stripeCheckoutSessionId: sessionObject.id || "",
-            stripeSubscriptionId:
-              typeof sessionObject.subscription === "string"
-                ? sessionObject.subscription
-                : sessionObject.subscription?.id || "",
-            stripeSubscriptionStatus:
-              sessionObject.payment_status === "paid" ? "active" : "trialing",
-            stripeCurrentPlan: String(
-              sessionObject?.metadata?.plan || "free"
-            ).toLowerCase(),
-            stripeBillingCycle: String(
-              sessionObject?.metadata?.billing || "monthly"
-            ).toLowerCase(),
-            stripeTrialUsed:
-              String(sessionObject?.metadata?.isTrial || "false") === "true",
-            stripeLastEventType: event.type,
-          });
-
-          await ensurePermanentExclusiveForPage(updated || email);
-        }
-
+        await ensurePermanentExclusiveForPage(email);
         break;
       }
 
+      // Subscription created/updated
       case "customer.subscription.created":
       case "customer.subscription.updated": {
-        const subscriptionObject = event.data.object;
-        const customerId = getCustomerIdFromObject(subscriptionObject);
-        const email = await resolveEmailFromSubscription(subscriptionObject);
-        const price = getPriceFromSubscription(subscriptionObject);
-        const plan = getPlanFromSubscription(subscriptionObject);
-        const billing = getBillingFromSubscription(subscriptionObject);
+        const subscription = event.data.object;
+        const email = await resolveEmail(subscription);
+        const customerId = getCustomerIdFromObject(subscription);
+        const price = subscription?.items?.data?.[0]?.price || null;
+        const interval = price?.recurring?.interval || "month";
+        const plan =
+          String(subscription?.metadata?.plan || "").toLowerCase() ||
+          (price?.unit_amount ? (price.unit_amount === 500 ? "basic" : price.unit_amount === 2000 ? "premium" : "exclusive") : "free");
+        const billing =
+          String(subscription?.metadata?.billing || "").toLowerCase() ||
+          (interval === "year" ? "annual" : "monthly");
         const isTrial =
-          String(subscriptionObject?.metadata?.isTrial || "false") === "true" ||
-          subscriptionObject?.status === "trialing";
+          subscription?.status === "trialing" ||
+          String(subscription?.metadata?.isTrial || "false") === "true";
 
-        const updated = await applyUpdates(email, customerId, {
+        await applyUpdates(email, customerId, {
           stripeCustomerId: customerId || "",
-          stripeSubscriptionId: subscriptionObject.id || "",
-          stripeSubscriptionStatus: subscriptionObject.status || "",
-          stripeCurrentPlan:
-            ["active", "trialing", "past_due"].includes(subscriptionObject.status)
-              ? plan
-              : "free",
+          stripeSubscriptionId: subscription.id,
+          stripeSubscriptionStatus: subscription.status || "",
+          stripeCurrentPlan: ["active", "trialing", "past_due"].includes(subscription.status)
+            ? plan
+            : "free",
           stripeBillingCycle: billing,
           stripePriceId: price?.id || "",
           stripeUnitAmount: price?.unit_amount ?? 0,
           stripeCurrency: price?.currency || "gbp",
-          stripeInterval: price?.recurring?.interval || "month",
-          stripeTrialEndsAt: subscriptionObject.trial_end
-            ? new Date(subscriptionObject.trial_end * 1000)
+          stripeInterval: interval,
+          stripeTrialEndsAt: subscription.trial_end
+            ? new Date(subscription.trial_end * 1000)
             : null,
           stripeTrialUsed: isTrial ? true : undefined,
-          stripeCurrentPeriodEnd: subscriptionObject.current_period_end
-            ? new Date(subscriptionObject.current_period_end * 1000)
+          stripeCurrentPeriodEnd: subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000)
             : null,
-          stripeCancelAtPeriodEnd: !!subscriptionObject.cancel_at_period_end,
+          stripeCancelAtPeriodEnd: !!subscription.cancel_at_period_end,
           stripeLastEventType: event.type,
         });
 
-        await ensurePermanentExclusiveForPage(updated || email);
+        await ensurePermanentExclusiveForPage(email);
         break;
       }
 
+      // Subscription deleted/cancelled
       case "customer.subscription.deleted": {
-        const subscriptionObject = event.data.object;
-        const customerId = getCustomerIdFromObject(subscriptionObject);
-        const email = await resolveEmailFromSubscription(subscriptionObject);
+        const subscription = event.data.object;
+        const email = await resolveEmail(subscription);
+        const customerId = getCustomerIdFromObject(subscription);
 
-        const updated = await applyUpdates(
+        await applyUpdates(
           email,
           customerId,
           buildFreeState({
             stripeCustomerId: customerId || "",
-            stripeSubscriptionId: subscriptionObject.id || "",
+            stripeSubscriptionId: subscription.id,
             stripeTrialUsed: true,
             stripeLastEventType: event.type,
           })
         );
 
-        await ensurePermanentExclusiveForPage(updated || email);
+        await ensurePermanentExclusiveForPage(email);
         break;
       }
 
+      // Invoice paid → mark active
       case "invoice.paid": {
-        const invoiceObject = event.data.object;
-        const customerId = getCustomerIdFromObject(invoiceObject);
-        const email = await resolveEmailFromInvoice(invoiceObject);
+        const invoice = event.data.object;
+        const email = await resolveEmail(invoice);
+        const customerId = getCustomerIdFromObject(invoice);
+        const subscription = invoice.subscription;
 
-        const linePrice = invoiceObject?.lines?.data?.[0]?.price || null;
-        const amount = linePrice?.unit_amount ?? 0;
-        const interval = linePrice?.recurring?.interval || "month";
-
-        const plan =
-          String(
-            invoiceObject?.parent?.subscription_details?.metadata?.plan || ""
-          ).toLowerCase() || getPlanFromAmount(amount, interval);
-
-        const billing =
-          String(
-            invoiceObject?.parent?.subscription_details?.metadata?.billing || ""
-          ).toLowerCase() || getBillingFromInterval(interval);
-
-        const updated = await applyUpdates(email, customerId, {
+        await applyUpdates(email, customerId, {
           stripeCustomerId: customerId || "",
           stripeSubscriptionStatus: "active",
-          stripeCurrentPlan: plan,
-          stripeBillingCycle: billing,
-          stripeLastInvoiceId: invoiceObject.id || "",
+          stripeLastInvoiceId: invoice.id,
           stripeLastEventType: event.type,
         });
 
-        await ensurePermanentExclusiveForPage(updated || email);
+        await ensurePermanentExclusiveForPage(email);
         break;
       }
 
+      // Invoice payment failed → mark past_due or free
       case "invoice.payment_failed": {
-        const invoiceObject = event.data.object;
-        const customerId = getCustomerIdFromObject(invoiceObject);
-        const email = await resolveEmailFromInvoice(invoiceObject);
-        const billingReason = String(invoiceObject?.billing_reason || "");
+        const invoice = event.data.object;
+        const email = await resolveEmail(invoice);
+        const customerId = getCustomerIdFromObject(invoice);
+        const billingReason = String(invoice?.billing_reason || "");
 
         const shouldDowngrade =
-          billingReason === "subscription_cycle" ||
-          billingReason === "subscription_create";
+          billingReason === "subscription_cycle" || billingReason === "subscription_create";
 
-        const updated = await applyUpdates(
+        await applyUpdates(
           email,
           customerId,
           shouldDowngrade
             ? buildFreeState({
                 stripeCustomerId: customerId || "",
                 stripeTrialUsed: true,
-                stripeLastInvoiceId: invoiceObject.id || "",
+                stripeLastInvoiceId: invoice.id,
                 stripeLastEventType: event.type,
               })
             : {
                 stripeCustomerId: customerId || "",
                 stripeSubscriptionStatus: "past_due",
-                stripeLastInvoiceId: invoiceObject.id || "",
+                stripeLastInvoiceId: invoice.id,
                 stripeLastEventType: event.type,
               }
         );
 
-        await ensurePermanentExclusiveForPage(updated || email);
+        await ensurePermanentExclusiveForPage(email);
         break;
       }
 
@@ -293,13 +190,6 @@ export async function POST(req) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Stripe webhook handler failed:", error);
-
-    return NextResponse.json(
-      {
-        error: "Webhook handler failed",
-        details: error?.message || "Unknown error",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error?.message || "Webhook failed" }, { status: 500 });
   }
 }
