@@ -1,5 +1,6 @@
 import { model, models, Schema } from "mongoose";
 
+// 🔥 Embedded subscription schema
 const SubscriptionSchema = new Schema(
   {
     status: {
@@ -40,14 +41,15 @@ const UserSchema = new Schema(
     discordUsername: { type: String, default: "" },
     credits: { type: Number, default: 0, min: 0 },
 
+    // Shared numeric ID
     psid: { type: Number, unique: true, sparse: true, index: true },
 
-    // 🔥 ADD THIS
+    // 🔥 ADD THIS (subscription system)
     subscription: {
       type: SubscriptionSchema,
       default: () => ({
         status: "trialing",
-        trial_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7-day trial
+        trial_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         current_period_end: null,
         has_paid: false,
         cancelled_at: null,
