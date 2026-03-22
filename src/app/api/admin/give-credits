@@ -1,0 +1,38 @@
+// /api/admin/give-credits
+
+import { Page } from "@/models/Page";
+import mongoose from "mongoose";
+import { getServerSession } from "next-auth";
+
+export async function POST(req) {
+  const session = await getServerSession();
+
+  await mongoose.connect(process.env.MONGO_URI);
+
+  const admin = await Page.findOne({ owner: session.user.email });
+
+  if (!admin?.isAdmin) {
+    return Response.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const { email, amount } = await req.json();
+
+  const user = await Page.findOne({ owner: email });
+
+  if (!user) {
+    return Response.json({ error: "User not found" }, { status: 404 });
+  }
+
+  user.credits += amount;
+
+  user.creditTransactions.push({
+    amount,
+    type: "grant",
+    note: "Admin grant",
+    givenBy: session.user.email,
+  });
+
+  await user.save();
+
+  return Response.json({ success: true });
+}
