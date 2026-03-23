@@ -1,195 +1,109 @@
-// src/app/api/stripe/webhook/route.js
-import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import Stripe from "stripe";
-import { connectDb, applyUpdates, ensurePermanentExclusiveForPage, buildFreeState, normalizeEmail, getCustomerIdFromObject } from "@/libs/stripe-subscriptions";
-import { Page } from "@/models/Page";
+import { headers } from "next/headers";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { User } from "@/models/User";
+import { handleReferralPurchase } from "@/libs/handleReferral";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-08-16",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Utility: resolve email from Stripe object
-async function resolveEmail(stripeObject) {
-  if (!stripeObject) return "";
-  return normalizeEmail(
-    stripeObject?.customer_email ||
-      stripeObject?.customer_details?.email ||
-      stripeObject?.metadata?.email
-  );
+async function connectDB() {
+  if (mongoose.connection.readyState === 1) return;
+  await mongoose.connect(process.env.MONGO_URI);
 }
 
 export async function POST(req) {
-  const sig = req.headers.get("stripe-signature");
-  if (!sig) return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
+  await connectDB();
 
-  const rawBody = await req.text();
+  const body = await req.text(); // 🔥 raw body required
+  const sig = headers().get("stripe-signature");
 
   let event;
+
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(
+      body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch (err) {
-    console.error("⚠️ Stripe webhook signature verification failed:", err.message);
-    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 400 });
+    console.error("❌ Webhook error:", err.message);
+    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  try {
-    await connectDb();
+  // 💳 PAYMENT SUCCESS
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object;
 
-    switch (event.type) {
-      // New subscription completed via checkout
-      case "checkout.session.completed": {
-        const session = event.data.object;
-        if (session.mode !== "subscription") break;
+    const email = invoice.customer_email;
 
-        const email = await resolveEmail(session);
-        const customerId = getCustomerIdFromObject(session);
+    const user = await User.findOne({ email });
 
-        await applyUpdates(email, customerId, {
-          stripeCustomerId: customerId || "",
-          stripeCheckoutSessionId: session.id,
-          stripeSubscriptionId:
-            typeof session.subscription === "string"
-              ? session.subscription
-              : session.subscription?.id || "",
-          stripeSubscriptionStatus:
-            session.payment_status === "paid" ? "active" : "trialing",
-          stripeCurrentPlan: String(session?.metadata?.plan || "free").toLowerCase(),
-          stripeBillingCycle: String(session?.metadata?.billing || "monthly").toLowerCase(),
-          stripeTrialUsed:
-            String(session?.metadata?.isTrial || "false") === "true",
-          stripeLastEventType: event.type,
-        });
+    if (user) {
+      user.subscription.has_paid = true;
+      user.subscription.status = "active";
+      user.subscription.startedWithCredits = false;
 
-        await ensurePermanentExclusiveForPage(email);
-        break;
+      const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+
+      if (periodEnd) {
+        user.subscription.current_period_end = new Date(periodEnd * 1000);
       }
 
-      // Subscription created/updated
-      case "customer.subscription.created":
-      case "customer.subscription.updated": {
-        const subscription = event.data.object;
-        const email = await resolveEmail(subscription);
-        const customerId = getCustomerIdFromObject(subscription);
-        const price = subscription?.items?.data?.[0]?.price || null;
-        const interval = price?.recurring?.interval || "month";
-        const plan =
-          String(subscription?.metadata?.plan || "").toLowerCase() ||
-          (price?.unit_amount ? (price.unit_amount === 500 ? "basic" : price.unit_amount === 2000 ? "premium" : "exclusive") : "free");
-        const billing =
-          String(subscription?.metadata?.billing || "").toLowerCase() ||
-          (interval === "year" ? "annual" : "monthly");
-        const isTrial =
-          subscription?.status === "trialing" ||
-          String(subscription?.metadata?.isTrial || "false") === "true";
+      await user.save();
 
-        await applyUpdates(email, customerId, {
-          stripeCustomerId: customerId || "",
-          stripeSubscriptionId: subscription.id,
-          stripeSubscriptionStatus: subscription.status || "",
-          stripeCurrentPlan: ["active", "trialing", "past_due"].includes(subscription.status)
-            ? plan
-            : "free",
-          stripeBillingCycle: billing,
-          stripePriceId: price?.id || "",
-          stripeUnitAmount: price?.unit_amount ?? 0,
-          stripeCurrency: price?.currency || "gbp",
-          stripeInterval: interval,
-          stripeTrialEndsAt: subscription.trial_end
-            ? new Date(subscription.trial_end * 1000)
-            : null,
-          stripeTrialUsed: isTrial ? true : undefined,
-          stripeCurrentPeriodEnd: subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000)
-            : null,
-          stripeCancelAtPeriodEnd: !!subscription.cancel_at_period_end,
-          stripeLastEventType: event.type,
-        });
-
-        await ensurePermanentExclusiveForPage(email);
-        break;
-      }
-
-      // Subscription deleted/cancelled
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object;
-        const email = await resolveEmail(subscription);
-        const customerId = getCustomerIdFromObject(subscription);
-
-        await applyUpdates(
-          email,
-          customerId,
-          buildFreeState({
-            stripeCustomerId: customerId || "",
-            stripeSubscriptionId: subscription.id,
-            stripeTrialUsed: true,
-            stripeLastEventType: event.type,
-          })
-        );
-
-        await ensurePermanentExclusiveForPage(email);
-        break;
-      }
-
-      // Invoice paid → mark active
-      case "invoice.paid": {
-        const invoice = event.data.object;
-        const email = await resolveEmail(invoice);
-        const customerId = getCustomerIdFromObject(invoice);
-        const subscription = invoice.subscription;
-
-        await applyUpdates(email, customerId, {
-          stripeCustomerId: customerId || "",
-          stripeSubscriptionStatus: "active",
-          stripeLastInvoiceId: invoice.id,
-          stripeLastEventType: event.type,
-        });
-
-        await ensurePermanentExclusiveForPage(email);
-        break;
-      }
-
-      // Invoice payment failed → mark past_due or free
-      case "invoice.payment_failed": {
-        const invoice = event.data.object;
-        const email = await resolveEmail(invoice);
-        const customerId = getCustomerIdFromObject(invoice);
-        const billingReason = String(invoice?.billing_reason || "");
-
-        const shouldDowngrade =
-          billingReason === "subscription_cycle" || billingReason === "subscription_create";
-
-        await applyUpdates(
-          email,
-          customerId,
-          shouldDowngrade
-            ? buildFreeState({
-                stripeCustomerId: customerId || "",
-                stripeTrialUsed: true,
-                stripeLastInvoiceId: invoice.id,
-                stripeLastEventType: event.type,
-              })
-            : {
-                stripeCustomerId: customerId || "",
-                stripeSubscriptionStatus: "past_due",
-                stripeLastInvoiceId: invoice.id,
-                stripeLastEventType: event.type,
-              }
-        );
-
-        await ensurePermanentExclusiveForPage(email);
-        break;
-      }
-
-      default:
-        break;
+      await handleReferralPurchase(user, "stripe_subscription");
     }
-
-    return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error("Stripe webhook handler failed:", error);
-    return NextResponse.json({ error: error?.message || "Webhook failed" }, { status: 500 });
   }
+
+  // ❌ PAYMENT FAILED
+  if (event.type === "invoice.payment_failed") {
+    const invoice = event.data.object;
+
+    const user = await User.findOne({
+      email: invoice.customer_email,
+    });
+
+    if (user) {
+      user.subscription.status = "past_due";
+      await user.save();
+    }
+  }
+
+  // 🚫 SUB CANCELLED
+  if (event.type === "customer.subscription.deleted") {
+    const sub = event.data.object;
+
+    // 🔥 safer: fetch email from Stripe
+    const customer = await stripe.customers.retrieve(sub.customer);
+    const email = customer.email;
+
+    const user = await User.findOne({ email });
+
+    if (user) {
+      user.subscription.status = "canceled";
+      user.subscription.cancelled_at = new Date();
+
+      await user.save();
+    }
+  }
+
+  // 💳 PAYMENT METHOD ADDED
+  if (event.type === "payment_method.attached") {
+    const pm = event.data.object;
+
+    const customer = await stripe.customers.retrieve(pm.customer);
+    const email = customer.email;
+
+    const user = await User.findOne({ email });
+
+    if (user) {
+      user.hasPaymentMethod = true;
+      await user.save();
+    }
+  }
+
+  return new Response(JSON.stringify({ received: true }), {
+    status: 200,
+  });
 }
