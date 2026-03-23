@@ -1,4 +1,5 @@
-import fetch from "node-fetch";
+// src/libs/handleReferral.js
+
 import { User } from "../models/User.js";
 
 export async function handleReferralPurchase(user, plan) {
@@ -18,7 +19,7 @@ export async function handleReferralPurchase(user, plan) {
 
   await referrer.save();
 
-  // 🔥 webhook
+  // 🔥 use built-in fetch (NO import needed)
   if (process.env.WEBHOOK_REF) {
     await fetch(process.env.WEBHOOK_REF, {
       method: "POST",
