@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const { model, models, Schema } = mongoose;
 
-// 🔥 Subscription schema
 const SubscriptionSchema = new Schema(
   {
     status: {
@@ -10,38 +9,31 @@ const SubscriptionSchema = new Schema(
       enum: ["trialing", "active", "past_due", "canceled", "expired"],
       default: "trialing",
     },
-
     trial_end: Date,
     current_period_end: Date,
-
     has_paid: { type: Boolean, default: false },
     cancelled_at: Date,
 
+    // 🔥 IMPORTANT FOR SPLITS
     startedWithCredits: { type: Boolean, default: false },
+    creditOriginUserId: { type: String, default: null }, // who funded credits
   },
   { _id: false }
 );
 
 const UserSchema = new Schema(
   {
-    email: { type: String, required: true, unique: true, index: true },
-    name: { type: String, default: "" },
-    image: { type: String, default: "" },
-
-    discordId: String,
-    discordUsername: String,
+    email: { type: String, required: true, unique: true },
+    name: String,
 
     credits: { type: Number, default: 0 },
 
-    psid: { type: Number, unique: true, sparse: true, index: true },
-
-    // 💳 billing
     hasPaymentMethod: { type: Boolean, default: false },
 
-    // 🔗 referrals
-    referralCode: { type: String, unique: true, sparse: true },
-    referredBy: { type: String, default: null },
+    referralCode: String,
+    referredBy: String,
 
+    // 🔥 referral tracking
     referralEarnings: [
       {
         referredUser: String,
@@ -50,7 +42,7 @@ const UserSchema = new Schema(
       },
     ],
 
-    // 💰 credit-based subscriptions
+    // 🔥 credit usage tracking
     creditSubscriptions: [
       {
         startedAt: Date,
@@ -59,14 +51,10 @@ const UserSchema = new Schema(
       },
     ],
 
-    // 🔥 subscription
     subscription: {
       type: SubscriptionSchema,
       default: () => ({
-        status: "trialing",
         trial_end: new Date(Date.now() + 7 * 86400000),
-        has_paid: false,
-        startedWithCredits: false,
       }),
     },
   },
