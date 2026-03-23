@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const { model, models, Schema } = mongoose;
 
-// 🔥 Embedded subscription schema
+// 🔥 Subscription schema
 const SubscriptionSchema = new Schema(
   {
     status: {
@@ -11,25 +11,13 @@ const SubscriptionSchema = new Schema(
       default: "trialing",
     },
 
-    trial_end: {
-      type: Date,
-      default: null,
-    },
+    trial_end: Date,
+    current_period_end: Date,
 
-    current_period_end: {
-      type: Date,
-      default: null,
-    },
+    has_paid: { type: Boolean, default: false },
+    cancelled_at: Date,
 
-    has_paid: {
-      type: Boolean,
-      default: false,
-    },
-
-    cancelled_at: {
-      type: Date,
-      default: null,
-    },
+    startedWithCredits: { type: Boolean, default: false },
   },
   { _id: false }
 );
@@ -39,25 +27,50 @@ const UserSchema = new Schema(
     email: { type: String, required: true, unique: true, index: true },
     name: { type: String, default: "" },
     image: { type: String, default: "" },
-    discordId: { type: String, default: "" },
-    discordUsername: { type: String, default: "" },
-    credits: { type: Number, default: 0, min: 0 },
+
+    discordId: String,
+    discordUsername: String,
+
+    credits: { type: Number, default: 0 },
 
     psid: { type: Number, unique: true, sparse: true, index: true },
 
-    // 🔥 subscription system
+    // 💳 billing
+    hasPaymentMethod: { type: Boolean, default: false },
+
+    // 🔗 referrals
+    referralCode: { type: String, unique: true, sparse: true },
+    referredBy: { type: String, default: null },
+
+    referralEarnings: [
+      {
+        referredUser: String,
+        plan: String,
+        timestamp: Date,
+      },
+    ],
+
+    // 💰 credit-based subscriptions
+    creditSubscriptions: [
+      {
+        startedAt: Date,
+        plan: String,
+        creditsUsed: Number,
+      },
+    ],
+
+    // 🔥 subscription
     subscription: {
       type: SubscriptionSchema,
       default: () => ({
         status: "trialing",
-        trial_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        current_period_end: null,
+        trial_end: new Date(Date.now() + 7 * 86400000),
         has_paid: false,
-        cancelled_at: null,
+        startedWithCredits: false,
       }),
     },
   },
   { timestamps: true }
 );
 
-export const User = models?.User || model("User", UserSchema);
+export const User = models.User || model("User", UserSchema);
