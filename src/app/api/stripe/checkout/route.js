@@ -7,9 +7,8 @@ import mongoose from "mongoose";
 import { User } from "@/models/User";
 
 const CREDIT_VALUE_GBP = 20 / 450;
-const PLAN_AMOUNT_PENCE = 2000; // £20/month
+const PLAN_AMOUNT_PENCE = 2000;
 
-// 🔌 DB CONNECT
 async function connectDB() {
   if (mongoose.connection.readyState === 1) return;
   await mongoose.connect(process.env.MONGO_URI);
@@ -18,40 +17,25 @@ async function connectDB() {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const paymentOption = body?.paymentOption || "card"; // 👈 support client
+    const paymentOption = body?.paymentOption || "card";
 
-    // 🔐 SESSION
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized (not logged in)" },
-        { status: 401 }
-      );
-    }
+    if (!session?.user?.email)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const email = session.user.email;
 
-    // 🔌 CONNECT DB
     await connectDB();
-
     const user = await User.findOne({ email });
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // 💰 CREDIT CALCULATION
     const creditValueGBP = user.credits * CREDIT_VALUE_GBP;
     const creditValuePence = Math.floor(creditValueGBP * 100);
     const periodsCovered = Math.floor(creditValuePence / PLAN_AMOUNT_PENCE);
 
     const useCredits = paymentOption === "credits" && periodsCovered > 0;
 
-    // =========================================
-    // 💳 NO CARD → SEND TO STRIPE SETUP
-    // =========================================
+    // Setup card if using credits but no card
     if (useCredits && !user.hasPaymentMethod) {
       const setupSession = await stripe.checkout.sessions.create({
         mode: "setup",
@@ -60,19 +44,11 @@ export async function POST(req) {
         success_url: `${process.env.NEXTAUTH_URL}/account?card_added=1`,
         cancel_url: `${process.env.NEXTAUTH_URL}/pricing?card_cancelled=1`,
       });
-
-      return NextResponse.json({
-        needsPaymentMethod: true,
-        url: setupSession.url,
-      });
+      return NextResponse.json({ needsPaymentMethod: true, url: setupSession.url });
     }
 
-    // 📆 Convert credits → trial
     const trialDays = useCredits ? periodsCovered * 30 : 0;
 
-    // =========================================
-    // ✅ CREATE STRIPE SUBSCRIPTION
-    // =========================================
     const stripeSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: email,
@@ -105,39 +81,18 @@ export async function POST(req) {
       cancel_url: `${process.env.NEXTAUTH_URL}/pricing?cancel=1`,
     });
 
-    // 💸 DEDUCT CREDITS
     if (useCredits) {
       const creditsPerPound = 450 / 20;
-      const creditsUsed = Math.floor(
-        ((periodsCovered * PLAN_AMOUNT_PENCE) / 100) * creditsPerPound
-      );
-
+      const creditsUsed = Math.floor(((periodsCovered * PLAN_AMOUNT_PENCE) / 100) * creditsPerPound);
       user.credits -= creditsUsed;
       user.subscription.startedWithCredits = true;
-
-      user.creditSubscriptions.push({
-        startedAt: new Date(),
-        plan: "premium",
-        creditsUsed,
-      });
-
+      user.creditSubscriptions.push({ startedAt: new Date(), plan: "premium", creditsUsed });
       await user.save();
     }
 
-    return NextResponse.json({
-      ok: true,
-      url: stripeSession.url,
-      usedCredits: useCredits,
-      periodsCovered,
-    });
+    return NextResponse.json({ ok: true, url: stripeSession.url, usedCredits: useCredits, periodsCovered });
   } catch (err) {
     console.error("Checkout error:", err);
-    return NextResponse.json(
-      {
-        error: "Checkout failed",
-        details: err.message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Checkout failed", details: err.message }, { status: 500 });
   }
 }
