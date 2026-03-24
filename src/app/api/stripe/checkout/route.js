@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 import stripe from "@/libs/stripe";
 import mongoose from "mongoose";
 import { User } from "@/models/User";
 
 const CREDIT_VALUE_GBP = 20 / 450;
 
+// 🔌 DB CONNECT
 async function connectDB() {
   if (mongoose.connection.readyState === 1) return;
   await mongoose.connect(process.env.MONGO_URI);
@@ -12,16 +16,17 @@ async function connectDB() {
 
 export async function POST(req) {
   try {
-    const body = await req.json().catch(() => null);
+    // 🔐 GET LOGGED IN USER (FIXES YOUR BUG)
+    const session = await getServerSession(authOptions);
 
-    if (!body || !body.email) {
+    if (!session?.user?.email) {
       return NextResponse.json(
-        { error: "Missing email" },
-        { status: 400 }
+        { error: "Unauthorized (not logged in)" },
+        { status: 401 }
       );
     }
 
-    const { email } = body;
+    const email = session.user.email;
 
     await connectDB();
 
@@ -34,16 +39,17 @@ export async function POST(req) {
       );
     }
 
+    // 💳 PLAN (you can expand later)
     const planAmount = 2000; // £20/month
 
-    // 💰 CREDIT CALCULATION (CORRECT)
+    // 💰 CREDIT CALCULATION (450 = £20)
     const creditValueGBP = user.credits * CREDIT_VALUE_GBP;
     const creditValuePence = Math.floor(creditValueGBP * 100);
 
     const periodsCovered = Math.floor(creditValuePence / planAmount);
     const useCredits = periodsCovered > 0;
 
-    // 💳 REQUIRE CARD
+    // ❗ REQUIRE CARD IF USING CREDITS
     if (useCredits && !user.hasPaymentMethod) {
       return NextResponse.json(
         { error: "You must add a payment method first." },
@@ -51,10 +57,10 @@ export async function POST(req) {
       );
     }
 
-    // 📆 Convert credits → days
+    // 📆 Convert to trial
     const trialDays = useCredits ? periodsCovered * 30 : 0;
 
-    const session = await stripe.checkout.sessions.create({
+    const stripeSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer_email: email,
 
@@ -94,12 +100,12 @@ export async function POST(req) {
       cancel_url: `${process.env.NEXTAUTH_URL}/pricing?cancel=1`,
     });
 
-    // 💸 DEDUCT CREDITS
+    // 💸 DEDUCT CREDITS (AFTER SESSION CREATED)
     if (useCredits) {
       const creditsPerPound = 450 / 20;
 
       const creditsUsed = Math.floor(
-        (periodsCovered * planAmount) / 100 * creditsPerPound
+        ((periodsCovered * planAmount) / 100) * creditsPerPound
       );
 
       user.credits -= creditsUsed;
@@ -117,7 +123,9 @@ export async function POST(req) {
 
     return NextResponse.json({
       ok: true,
-      url: session.url,
+      url: stripeSession.url,
+      usedCredits: useCredits,
+      periodsCovered,
     });
   } catch (err) {
     console.error("Checkout error:", err);
