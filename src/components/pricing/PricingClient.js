@@ -126,22 +126,17 @@ function CheckIcon() {
 export default function PricingClient() {
   const [billing, setBilling] = useState("monthly");
   const [loading, setLoading] = useState(null);
-  const [user, setUser] = useState({
-    credits: 0,
-    hasPaymentMethod: false,
-    email: "",
-  });
+  const [user, setUser] = useState({ credits: 0, hasPaymentMethod: false, email: "" });
 
-  // Fetch user info and also check Stripe for saved cards
+  // Fetch user + check Stripe for saved cards
   useEffect(() => {
     async function fetchUser() {
       try {
         const res = await fetch("/api/user/me");
         const data = await res.json();
-
         if (!res.ok) throw new Error(data?.error || "Failed to fetch user");
 
-        // Check if Stripe customer has saved cards
+        // check Stripe saved cards
         let hasCard = false;
         if (data.email) {
           const stripeRes = await fetch(`/api/stripe/check-cards?email=${data.email}`);
@@ -154,7 +149,6 @@ export default function PricingClient() {
         console.error(err);
       }
     }
-
     fetchUser();
   }, []);
 
@@ -176,7 +170,6 @@ export default function PricingClient() {
 
           <div className="mt-8 inline-flex rounded-2xl border border-white/10 bg-[#111827] p-1">
             <button
-              type="button"
               onClick={() => setBilling("monthly")}
               className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
                 billing === "monthly" ? "bg-blue-600 text-white" : "text-white/70 hover:text-white"
@@ -185,7 +178,6 @@ export default function PricingClient() {
               Monthly
             </button>
             <button
-              type="button"
               onClick={() => setBilling("annual")}
               className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
                 billing === "annual" ? "bg-blue-600 text-white" : "text-white/70 hover:text-white"
@@ -194,10 +186,6 @@ export default function PricingClient() {
               Annual
             </button>
           </div>
-
-          {billing === "monthly" && (
-            <div className="mt-3 text-sm text-blue-300">Premium includes a 7-day free trial</div>
-          )}
 
           <div className="mt-6 text-sm text-blue-300">
             You have {user.credits} credits (~£{creditGBP.toFixed(2)})
@@ -224,7 +212,6 @@ export default function PricingClient() {
                 <div>
                   <h2 className="text-2xl font-black text-white">{plan.name}</h2>
                   <p className="mt-2 text-sm text-white/60">{plan.subtitle}</p>
-
                   <div className="mt-5 flex items-end gap-1">
                     <span className="text-5xl font-black leading-none text-white">{currentPrice}</span>
                     <span className="pb-1 text-sm text-white/60">{billingLabel}</span>
