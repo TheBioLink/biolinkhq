@@ -1,4 +1,3 @@
-// src/components/pricing/PricingClient.js
 "use client";
 
 import Link from "next/link";
@@ -46,7 +45,7 @@ const plans = [
     annualPrice: "£200",
     subtitle: "Advanced tools for growth",
     accent:
-      "border-blue-500 bg-gradient-to-b from-blue-500/10 to-[#111827] shadow-[0_0_0_1px_rgba(59,130,246,0.2),0_20px_60px_rgba(37,99,235,0.15)]",
+      "border-blue-500 bg-gradient-to-b from-blue-500/10 to-[#111827]",
     button: "bg-blue-600 text-white hover:bg-blue-500",
     featured: true,
     badge: "Most Popular",
@@ -56,7 +55,9 @@ const plans = [
       "Advanced analytics",
       "Priority page loading",
       "Premium themes",
-      "7-day free trial on monthly",
+      "7-day free trial",
+      "💰 Pay with credits (450 = £20)",
+      "🔁 Auto-renew after credits run out",
     ],
   },
   {
@@ -74,6 +75,7 @@ const plans = [
       "Custom domain support",
       "Advanced integrations",
       "Priority feature access",
+      "💰 Credits supported",
     ],
   },
 ];
@@ -90,12 +92,24 @@ async function startCheckout(plan, billing, setLoading) {
       body: JSON.stringify({ plan, billing }),
     });
 
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error("Invalid server response");
+    }
 
     if (!res.ok) {
       throw new Error(data?.error || data?.details || "Checkout failed");
     }
 
+    // 💳 Needs card → redirect to Stripe setup
+    if (data?.needsPaymentMethod && data?.url) {
+      window.location.href = data.url;
+      return;
+    }
+
+    // 💳 Normal checkout
     if (data?.url) {
       window.location.href = data.url;
       return;
@@ -111,18 +125,11 @@ async function startCheckout(plan, billing, setLoading) {
 
 function CheckIcon() {
   return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      className="mt-0.5 h-5 w-5 flex-none text-blue-400"
-      aria-hidden="true"
-    >
+    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5 text-blue-400">
       <path
         d="M16.667 5 7.5 14.167 3.333 10"
         stroke="currentColor"
         strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </svg>
   );
@@ -140,93 +147,83 @@ export default function PricingClient() {
   return (
     <div className="px-4 py-16 text-white">
       <main className="mx-auto max-w-7xl">
-        <div className="mx-auto mb-14 max-w-3xl text-center">
-          <div className="mb-4 inline-flex rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-blue-300">
-            Pricing
-          </div>
 
+        {/* HEADER */}
+        <div className="mx-auto mb-14 max-w-3xl text-center">
           <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-            Choose the right plan for your page
+            Choose the right plan
           </h1>
 
-          <p className="mt-4 text-base text-white/65 sm:text-lg">
-            Start free and upgrade whenever you need more customization,
-            analytics, and premium features.
+          <p className="mt-4 text-base text-white/65">
+            Pay with credits or card. Credits convert at{" "}
+            <span className="text-blue-400 font-bold">
+              450 = £20
+            </span>.
           </p>
 
+          {/* BILLING TOGGLE */}
           <div className="mt-8 inline-flex rounded-2xl border border-white/10 bg-[#111827] p-1">
             <button
-              type="button"
               onClick={() => setBilling("monthly")}
-              className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+              className={`rounded-xl px-5 py-2.5 text-sm font-bold ${
                 billing === "monthly"
                   ? "bg-blue-600 text-white"
-                  : "text-white/70 hover:text-white"
+                  : "text-white/70"
               }`}
             >
               Monthly
             </button>
 
             <button
-              type="button"
               onClick={() => setBilling("annual")}
-              className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+              className={`rounded-xl px-5 py-2.5 text-sm font-bold ${
                 billing === "annual"
                   ? "bg-blue-600 text-white"
-                  : "text-white/70 hover:text-white"
+                  : "text-white/70"
               }`}
             >
               Annual
             </button>
           </div>
-
-          {billing === "monthly" && (
-            <div className="mt-3 text-sm text-blue-300">
-              Premium includes a 7-day free trial
-            </div>
-          )}
         </div>
 
+        {/* PLANS */}
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => {
             const isFree = plan.key === "free";
             const currentPrice =
-              billing === "annual" ? plan.annualPrice : plan.monthlyPrice;
+              billing === "annual"
+                ? plan.annualPrice
+                : plan.monthlyPrice;
+
             const isLoading = loading === `${plan.key}:${billing}`;
 
             return (
               <div
                 key={plan.key}
-                className={`relative flex min-h-[590px] flex-col rounded-3xl border p-8 ${plan.accent}`}
+                className={`flex flex-col rounded-3xl border p-8 ${plan.accent}`}
               >
                 {plan.featured && (
-                  <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-400/30 bg-blue-500 px-4 py-1 text-xs font-extrabold uppercase tracking-[0.18em] text-white shadow-lg">
+                  <div className="mb-3 text-xs font-bold text-blue-400">
                     {plan.badge}
                   </div>
                 )}
 
-                <div>
-                  <h2 className="text-2xl font-black text-white">{plan.name}</h2>
-                  <p className="mt-2 text-sm text-white/60">{plan.subtitle}</p>
+                <h2 className="text-2xl font-black">{plan.name}</h2>
+                <p className="mt-2 text-sm text-white/60">
+                  {plan.subtitle}
+                </p>
 
-                  <div className="mt-5 flex items-end gap-1">
-                    <span className="text-5xl font-black leading-none text-white">
-                      {currentPrice}
-                    </span>
-                    <span className="pb-1 text-sm text-white/60">
-                      {billingLabel}
-                    </span>
-                  </div>
-
-                  {plan.key === "premium" && billing === "monthly" && (
-                    <div className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                      7-day free trial
-                    </div>
-                  )}
+                <div className="mt-5 flex items-end gap-1">
+                  <span className="text-5xl font-black">
+                    {currentPrice}
+                  </span>
+                  <span className="pb-1 text-sm text-white/60">
+                    {billingLabel}
+                  </span>
                 </div>
 
-                <div className="mt-8 h-px bg-white/10" />
-
+                {/* FEATURES */}
                 <ul className="mt-8 space-y-4 text-sm text-white/80">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-3">
@@ -236,27 +233,40 @@ export default function PricingClient() {
                   ))}
                 </ul>
 
+                {/* BUTTON */}
                 <div className="mt-auto pt-8">
                   {isFree ? (
                     <Link
                       href={plan.href}
-                      className={`inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition ${plan.button}`}
+                      className={`w-full inline-flex justify-center rounded-xl px-5 py-3 text-sm font-bold ${plan.button}`}
                     >
                       {plan.cta}
                     </Link>
                   ) : (
                     <button
-                      type="button"
-                      onClick={() => startCheckout(plan.key, billing, setLoading)}
+                      onClick={() =>
+                        startCheckout(plan.key, billing, setLoading)
+                      }
                       disabled={loading !== null}
-                      className={`inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${plan.button}`}
+                      className={`w-full rounded-xl px-5 py-3 text-sm font-bold ${plan.button} disabled:opacity-60`}
                     >
                       {isLoading
                         ? "Loading..."
-                        : `${plan.cta} ${billing === "annual" ? "Yearly" : "Monthly"}`}
+                        : `${plan.cta} ${
+                            billing === "annual"
+                              ? "Yearly"
+                              : "Monthly"
+                          }`}
                     </button>
                   )}
                 </div>
+
+                {/* CREDIT INFO */}
+                {!isFree && (
+                  <div className="mt-4 text-center text-xs text-blue-300">
+                    💡 Credits are used first, then your card is charged
+                  </div>
+                )}
               </div>
             );
           })}
