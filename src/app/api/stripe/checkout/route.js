@@ -16,7 +16,7 @@ async function connectDB() {
 
 export async function POST(req) {
   try {
-    // 🔐 GET LOGGED IN USER (FIXES YOUR BUG)
+    // 🔐 SESSION
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -49,15 +49,26 @@ export async function POST(req) {
     const periodsCovered = Math.floor(creditValuePence / planAmount);
     const useCredits = periodsCovered > 0;
 
-    // ❗ REQUIRE CARD IF USING CREDITS
+    // =========================================
+    // 💳 NO CARD → SEND TO STRIPE SETUP
+    // =========================================
     if (useCredits && !user.hasPaymentMethod) {
-      return NextResponse.json(
-        { error: "You must add a payment method first." },
-        { status: 400 }
-      );
+      const setupSession = await stripe.checkout.sessions.create({
+        mode: "setup",
+        customer_email: email,
+        payment_method_types: ["card"],
+
+        success_url: `${process.env.NEXTAUTH_URL}/account?card_added=1`,
+        cancel_url: `${process.env.NEXTAUTH_URL}/pricing?card_cancelled=1`,
+      });
+
+      return NextResponse.json({
+        needsPaymentMethod: true,
+        url: setupSession.url,
+      });
     }
 
-    // 📆 Convert to trial
+    // 📆 Convert credits → trial
     const trialDays = useCredits ? periodsCovered * 30 : 0;
 
     const stripeSession = await stripe.checkout.sessions.create({
@@ -100,7 +111,7 @@ export async function POST(req) {
       cancel_url: `${process.env.NEXTAUTH_URL}/pricing?cancel=1`,
     });
 
-    // 💸 DEDUCT CREDITS (AFTER SESSION CREATED)
+    // 💸 DEDUCT CREDITS
     if (useCredits) {
       const creditsPerPound = 450 / 20;
 
