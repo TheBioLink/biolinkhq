@@ -1,37 +1,64 @@
-// src/libs/handleReferral.js
+import mongoose from "mongoose";
 
-import { User } from "../models/User.js";
+const { model, models, Schema } = mongoose;
 
-export async function handleReferralPurchase(user, plan) {
-  if (!user.referredBy) return;
+const SubscriptionSchema = new Schema(
+  {
+    status: {
+      type: String,
+      enum: ["trialing", "active", "past_due", "canceled", "expired"],
+      default: "trialing",
+    },
+    trial_end: Date,
+    current_period_end: Date,
+    has_paid: { type: Boolean, default: false },
+    cancelled_at: Date,
 
-  const referrer = await User.findOne({
-    referralCode: user.referredBy,
-  });
+    // 🔥 IMPORTANT FOR SPLITS
+    startedWithCredits: { type: Boolean, default: false },
+    creditOriginUserId: { type: String, default: null }, // who funded credits
+  },
+  { _id: false }
+);
 
-  if (!referrer) return;
+const UserSchema = new Schema(
+  {
+    email: { type: String, required: true, unique: true },
+    name: String,
 
-  referrer.referralEarnings.push({
-    referredUser: user.name,
-    plan,
-    timestamp: new Date(),
-  });
+    credits: { type: Number, default: 0 },
 
-  await referrer.save();
+    hasPaymentMethod: { type: Boolean, default: false },
 
-  // 🔥 use built-in fetch (NO import needed)
-  if (process.env.WEBHOOK_REF) {
-    await fetch(process.env.WEBHOOK_REF, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    referralCode: String,
+    referredBy: String,
+
+    // 🔥 referral tracking
+    referralEarnings: [
+      {
+        referredUser: String,
+        plan: String,
+        timestamp: Date,
       },
-      body: JSON.stringify({
-        referred_by: referrer.name,
-        referred_user: user.name,
-        plan: plan,
-        used_credits: user.subscription.startedWithCredits,
+    ],
+
+    // 🔥 credit usage tracking
+    creditSubscriptions: [
+      {
+        startedAt: Date,
+        plan: String,
+        creditsUsed: Number,
+      },
+    ],
+
+    subscription: {
+      type: SubscriptionSchema,
+      default: () => ({
+        trial_end: new Date(Date.now() + 7 * 86400000),
       }),
-    });
-  }
-}
+    },
+  },
+  { timestamps: true }
+);
+
+export const User = models.User || model("User", UserSchema);
