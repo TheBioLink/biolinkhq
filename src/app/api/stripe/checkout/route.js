@@ -1,111 +1,53 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import stripe from "@/libs/stripe";
-import { connectDb, normalizeEmail } from "@/libs/stripe-subscriptions";
-import { User } from "@/models/User";
+import mongoose from "mongoose";
+import Stripe from "stripe";
+import { headers } from "next/headers";
 
-const CREDIT_VALUE_GBP = 20 / 450;
+import { User } from "@/models/User";
+import { handleRevenueEvent } from "@/libs/handleReferral";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const body = await req.text();
+  const sig = headers().get("stripe-signature");
 
-    const body = await req.json();
+  const event = stripe.webhooks.constructEvent(
+    body,
+    sig,
+    process.env.STRIPE_WEBHOOK_SECRET
+  );
 
-    const email = normalizeEmail(session.user.email);
+  await mongoose.connect(process.env.MONGO_URI);
 
-    await connectDb();
+  // 💳 PAYMENT SUCCESS (THIS IS WHERE SPLITS HAPPEN)
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object;
+
+    const email = invoice.customer_email;
 
     const user = await User.findOne({ email });
 
-    const planAmount = 2000; // £20 example
+    if (!user) return new Response("ok");
 
-    const creditValueGBP = user.credits * CREDIT_VALUE_GBP;
-    const creditValuePence = Math.floor(creditValueGBP * 100);
+    user.subscription.has_paid = true;
+    user.subscription.status = "active";
 
-    const periodsCovered = Math.floor(creditValuePence / planAmount);
+    await user.save();
 
-    const useCredits = periodsCovered > 0;
-
-    if (useCredits && !user.hasPaymentMethod) {
-      return NextResponse.json(
-        { error: "Payment method required" },
-        { status: 400 }
-      );
-    }
-
-    const trialDays = periodsCovered * 30;
-
-    const sessionStripe = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer_email: email,
-
-      payment_method_collection: "always",
-
-      subscription_data: {
-        trial_period_days: trialDays,
-        metadata: {
-          usedCredits: useCredits ? "true" : "false",
-        },
-      },
-
-      line_items: [
-        {
-          price_data: {
-            currency: "gbp",
-            unit_amount: planAmount,
-            recurring: { interval: "month" },
-            product_data: { name: "Premium" },
-          },
-          quantity: 1,
-        },
-      ],
-
-      success_url: `${process.env.NEXTAUTH_URL}/account`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/pricing`,
+    // 🔗 referral payout
+    await handleRevenueEvent({
+      user,
+      plan: "premium",
+      type: "referral",
     });
 
-    // 💰 DEDUCT CREDITS
-    if (useCredits) {
-      const creditsPerPound = 450 / 20;
-
-      const creditsUsed = Math.floor(
-        (periodsCovered * planAmount) / 100 * creditsPerPound
-      );
-
-      user.credits -= creditsUsed;
-
-      user.subscription.startedWithCredits = true;
-
-      // 🔥 track who gave credits (if applicable)
-      if (user.referredBy) {
-        const referrer = await User.findOne({
-          referralCode: user.referredBy,
-        });
-
-        if (referrer) {
-          user.subscription.creditOriginUserId = referrer._id.toString();
-        }
-      }
-
-      user.creditSubscriptions.push({
-        startedAt: new Date(),
-        plan: "premium",
-        creditsUsed,
-      });
-
-      await user.save();
-    }
-
-    return NextResponse.json({ url: sessionStripe.url });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err.message },
-      { status: 500 }
-    );
+    // 💰 CREDIT ORIGIN CONTINUATION
+    await handleRevenueEvent({
+      user,
+      plan: "premium",
+      type: "credit_origin",
+    });
   }
+
+  return new Response("ok");
 }
