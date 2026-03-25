@@ -1,9 +1,9 @@
-import Stripe from "stripe";
+import stripe from "@/libs/stripe";
 import mongoose from "mongoose";
 import { headers } from "next/headers";
 import { User } from "@/models/User";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 async function connectDB() {
   if (mongoose.connection.readyState === 1) return;
@@ -11,71 +11,119 @@ async function connectDB() {
 }
 
 export async function POST(req) {
-  const sig = headers().get("stripe-signature");
-  if (!sig) return new Response("Missing stripe signature", { status: 400 });
-
   const body = await req.text();
+  const sig = headers().get("stripe-signature");
+
+  if (!sig) {
+    return new Response("Missing signature", { status: 400 });
+  }
+
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(
+      body,
+      sig,
+      endpointSecret
+    );
   } catch (err) {
-    console.error("Webhook signature error:", err.message);
-    return new Response("Invalid signature", { status: 400 });
+    return new Response(`Webhook error: ${err.message}`, {
+      status: 400,
+    });
   }
 
   await connectDB();
 
-  // PAYMENT SUCCEEDED
-  if (event.type === "invoice.payment_succeeded") {
-    const invoice = event.data.object;
-    let email = invoice.customer_email || (await stripe.customers.retrieve(invoice.customer)).email;
-    if (!email) return new Response("ok");
+  try {
+    switch (event.type) {
+      // 💳 Card added
+      case "setup_intent.succeeded": {
+        const email =
+          event.data.object.metadata?.email ||
+          event.data.object.customer_email;
 
-    const user = await User.findOne({ email });
-    if (user) {
-      user.subscription.status = "active";
-      user.subscription.has_paid = true;
-      const periodEnd = invoice.lines?.data?.[0]?.period?.end;
-      if (periodEnd) user.subscription.current_period_end = new Date(periodEnd * 1000);
-      await user.save();
+        if (email) {
+          await User.updateOne(
+            { email },
+            { hasPaymentMethod: true }
+          );
+        }
+        break;
+      }
+
+      // ✅ Subscription started
+      case "customer.subscription.created": {
+        const sub = event.data.object;
+        const email = sub.metadata?.email;
+
+        if (!email) break;
+
+        await User.updateOne(
+          { email },
+          {
+            stripeSubscriptionId: sub.id,
+            stripeSubscriptionStatus: sub.status,
+          }
+        );
+        break;
+      }
+
+      // 🔁 Renewal (important for revenue split)
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object;
+        const email = invoice.metadata?.email;
+
+        if (!email) break;
+
+        const user = await User.findOne({ email });
+
+        if (!user) break;
+
+        // 🔥 CREDIT → PAID TRANSITION TRACKING
+        if (user.subscription?.startedWithCredits) {
+          user.subscription.convertedToPaid = true;
+
+          // 🔔 WEBHOOK (YOUR REVENUE SPLIT SYSTEM)
+          if (process.env.WEBHOOK_REF) {
+            await fetch(process.env.WEBHOOK_REF, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                type: "credit_to_paid_conversion",
+                user: email,
+                plan: invoice.lines.data[0]?.description,
+              }),
+            });
+          }
+
+          await user.save();
+        }
+
+        break;
+      }
+
+      // ❌ Cancelled
+      case "customer.subscription.deleted": {
+        const sub = event.data.object;
+        const email = sub.metadata?.email;
+
+        if (!email) break;
+
+        await User.updateOne(
+          { email },
+          { stripeSubscriptionStatus: "canceled" }
+        );
+        break;
+      }
     }
-  }
 
-  // PAYMENT FAILED
-  if (event.type === "invoice.payment_failed") {
-    const invoice = event.data.object;
-    let email = invoice.customer_email || (await stripe.customers.retrieve(invoice.customer)).email;
-    const user = await User.findOne({ email });
-    if (user) {
-      user.subscription.status = "past_due";
-      await user.save();
-    }
+    return new Response("ok", { status: 200 });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    return new Response("Webhook handler failed", {
+      status: 500,
+    });
   }
-
-  // SUB CANCELLED
-  if (event.type === "customer.subscription.deleted") {
-    const sub = event.data.object;
-    let email = sub.customer_email || (await stripe.customers.retrieve(sub.customer)).email;
-    const user = await User.findOne({ email });
-    if (user) {
-      user.subscription.status = "canceled";
-      user.subscription.cancelled_at = new Date();
-      await user.save();
-    }
-  }
-
-  // CARD ADDED
-  if (event.type === "payment_method.attached") {
-    const pm = event.data.object;
-    if (!pm.customer) return new Response("ok");
-    const customer = await stripe.customers.retrieve(pm.customer);
-    const user = await User.findOne({ email: customer.email });
-    if (user) {
-      user.hasPaymentMethod = true;
-      await user.save();
-    }
-  }
-
-  return new Response(JSON.stringify({ received: true }), { status: 200 });
 }
