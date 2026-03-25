@@ -15,7 +15,7 @@ export async function POST(req) {
   const sig = headers().get("stripe-signature");
 
   if (!sig) {
-    return new Response("Missing signature", { status: 400 });
+    return new Response("No signature", { status: 400 });
   }
 
   let event;
@@ -27,20 +27,16 @@ export async function POST(req) {
       endpointSecret
     );
   } catch (err) {
-    return new Response(`Webhook error: ${err.message}`, {
-      status: 400,
-    });
+    return new Response("Webhook error", { status: 400 });
   }
 
   await connectDB();
 
   try {
     switch (event.type) {
-      // 💳 Card added
+      // 💳 CARD ADDED
       case "setup_intent.succeeded": {
-        const email =
-          event.data.object.metadata?.email ||
-          event.data.object.customer_email;
+        const email = event.data.object.customer_email;
 
         if (email) {
           await User.updateOne(
@@ -51,24 +47,48 @@ export async function POST(req) {
         break;
       }
 
-      // ✅ Subscription started
-      case "customer.subscription.created": {
-        const sub = event.data.object;
-        const email = sub.metadata?.email;
+      // ✅ CHECKOUT COMPLETED (SAFE CREDIT DEDUCTION)
+      case "checkout.session.completed": {
+        const session = event.data.object;
+
+        const email = session.metadata?.email;
+        const usedCredits = session.metadata?.usedCredits === "true";
 
         if (!email) break;
 
-        await User.updateOne(
-          { email },
-          {
-            stripeSubscriptionId: sub.id,
-            stripeSubscriptionStatus: sub.status,
-          }
-        );
+        const user = await User.findOne({ email });
+
+        if (!user) break;
+
+        if (usedCredits) {
+          const periods = Number(session.metadata.periodsCovered);
+
+          const PRICES = {
+            basic: 500,
+            premium: 2000,
+            exclusive: 10000,
+          };
+
+          const price = PRICES[session.metadata.plan];
+
+          const creditsUsed = Math.floor(
+            (price * periods) / 100 / (20 / 450)
+          );
+
+          user.credits -= creditsUsed;
+
+          user.subscription = {
+            startedWithCredits: true,
+            creditedPeriods: periods,
+          };
+
+          await user.save();
+        }
+
         break;
       }
 
-      // 🔁 Renewal (important for revenue split)
+      // 🔁 RENEWAL → CREDIT TO PAID
       case "invoice.payment_succeeded": {
         const invoice = event.data.object;
         const email = invoice.metadata?.email;
@@ -79,21 +99,16 @@ export async function POST(req) {
 
         if (!user) break;
 
-        // 🔥 CREDIT → PAID TRANSITION TRACKING
         if (user.subscription?.startedWithCredits) {
           user.subscription.convertedToPaid = true;
 
-          // 🔔 WEBHOOK (YOUR REVENUE SPLIT SYSTEM)
           if (process.env.WEBHOOK_REF) {
             await fetch(process.env.WEBHOOK_REF, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                type: "credit_to_paid_conversion",
+                type: "credit_conversion",
                 user: email,
-                plan: invoice.lines.data[0]?.description,
               }),
             });
           }
@@ -103,27 +118,10 @@ export async function POST(req) {
 
         break;
       }
-
-      // ❌ Cancelled
-      case "customer.subscription.deleted": {
-        const sub = event.data.object;
-        const email = sub.metadata?.email;
-
-        if (!email) break;
-
-        await User.updateOne(
-          { email },
-          { stripeSubscriptionStatus: "canceled" }
-        );
-        break;
-      }
     }
 
     return new Response("ok", { status: 200 });
   } catch (err) {
-    console.error("Webhook error:", err);
-    return new Response("Webhook handler failed", {
-      status: 500,
-    });
+    return new Response("Webhook failed", { status: 500 });
   }
 }
