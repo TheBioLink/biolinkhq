@@ -10,22 +10,35 @@ async function connectDB() {
 }
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
+  try {
+    const session = await getServerSession(authOptions);
 
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+
+    const user = await User.findOne({ email: session.user.email });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      credits: user.credits || 0,
+      hasPaymentMethod: !!user.hasPaymentMethod,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Failed to fetch user" },
+      { status: 500 }
+    );
   }
-
-  await connectDB();
-
-  const user = await User.findOne({ email: session.user.email });
-
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({
-    credits: user.credits || 0,
-    hasPaymentMethod: !!user.hasPaymentMethod,
-  });
 }
