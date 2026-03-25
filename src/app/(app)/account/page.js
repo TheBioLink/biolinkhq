@@ -5,14 +5,11 @@ import PageSettingsForm from "@/components/forms/PageSettingsForm";
 import PageButtonsForm from "@/components/forms/PageButtonsForm";
 import PageLinksForm from "@/components/forms/PageLinksForm";
 import BanPanel from "@/components/admin/BanPanel";
-import SponsorCreditsPanel from "@/components/dashboard/SponsorCreditsPanel";
-import CreditsCard from "@/components/dashboard/CreditsCard";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import mongoose from "mongoose";
 import { Page } from "@/models/Page";
-import { isItsNic } from "@/libs/credits";
 
 export default async function AccountPage() {
   const session = await getServerSession(authOptions);
@@ -26,7 +23,6 @@ export default async function AccountPage() {
   const username = page?.uri || "";
 
   const isFounderAdmin = email === "mrrunknown44@gmail.com";
-  const isNic = isItsNic({ email, uri: page?.uri });
 
   if (!username) {
     return (
@@ -50,8 +46,6 @@ export default async function AccountPage() {
       subtitle="Update your profile, buttons and links."
       activeTab="page"
     >
-      {isNic ? <SponsorCreditsPanel /> : <CreditsCard />}
-
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-extrabold">Profile</h2>
