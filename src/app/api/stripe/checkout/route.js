@@ -18,27 +18,19 @@ export async function POST(req) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { plan, billing, paymentOption = "card" } =
-      await req.json();
+    const { plan, billing } = await req.json();
 
     await connectDB();
 
     const user = await User.findOne({ email: session.user.email });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // 💳 Plan pricing
     const PRICES = {
       basic: { monthly: 500, annual: 5000 },
       premium: { monthly: 2000, annual: 20000 },
@@ -48,65 +40,52 @@ export async function POST(req) {
     const price = PRICES[plan]?.[billing];
 
     if (!price) {
-      return NextResponse.json(
-        { error: "Invalid plan" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
-    // 💰 Credits → GBP
+    // 💰 CREDIT CALCULATION
     const creditGBP = user.credits * CREDIT_TO_GBP;
     const creditPence = Math.floor(creditGBP * 100);
 
     const periodsCovered = Math.floor(creditPence / price);
 
-    const useCredits =
-      paymentOption === "credits" && periodsCovered > 0;
-
-    // 💳 REQUIRE CARD FIRST
-    if (useCredits && !user.hasPaymentMethod) {
-      const setupSession = await stripe.checkout.sessions.create({
-        mode: "setup",
-        customer_email: user.email,
-        payment_method_types: ["card"],
-        success_url: `${process.env.NEXTAUTH_URL}/account?card_added=1`,
-        cancel_url: `${process.env.NEXTAUTH_URL}/pricing`,
-      });
-
-      return NextResponse.json({
-        needsPaymentMethod: true,
-        url: setupSession.url,
-      });
+    if (periodsCovered <= 0) {
+      return NextResponse.json(
+        { error: "Not enough credits" },
+        { status: 400 }
+      );
     }
+
+    const trialDays =
+      periodsCovered * (billing === "annual" ? 365 : 30);
 
     const interval = billing === "annual" ? "year" : "month";
 
-    const trialDays = useCredits
-      ? periodsCovered * (billing === "annual" ? 365 : 30)
-      : 0;
-
-    const checkout = await stripe.checkout.sessions.create({
+    // 🔥 ALWAYS goes to Stripe (card collection)
+    const sessionStripe = await stripe.checkout.sessions.create({
       mode: "subscription",
+
       customer_email: user.email,
+
       payment_method_collection: "always",
+
+      subscription_data: {
+        trial_period_days: trialDays,
+        metadata: {
+          email: user.email,
+          plan,
+          billing,
+          usedCredits: "true",
+          periodsCovered: String(periodsCovered),
+        },
+      },
 
       metadata: {
         email: user.email,
         plan,
         billing,
-        usedCredits: useCredits ? "true" : "false",
+        usedCredits: "true",
         periodsCovered: String(periodsCovered),
-      },
-
-      subscription_data: {
-        ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
-        metadata: {
-          email: user.email,
-          plan,
-          billing,
-          usedCredits: useCredits ? "true" : "false",
-          periodsCovered: String(periodsCovered),
-        },
       },
 
       line_items: [
@@ -117,41 +96,39 @@ export async function POST(req) {
             unit_amount: price,
             recurring: { interval },
             product_data: {
-              name: `BiolinkHQ ${plan}`,
+              name: `BiolinkHQ ${plan} (credits applied)`,
             },
           },
         },
       ],
 
-      success_url: `${process.env.NEXTAUTH_URL}/account?success=1`,
+      success_url: `${process.env.NEXTAUTH_URL}/account?credits_success=1`,
       cancel_url: `${process.env.NEXTAUTH_URL}/pricing`,
     });
 
-    // 💸 Deduct credits
-    if (useCredits) {
-      const creditsUsed = Math.floor(
-        (price * periodsCovered) / 100 / CREDIT_TO_GBP
-      );
+    // 💸 Deduct credits immediately
+    const creditsUsed = Math.floor(
+      (price * periodsCovered) / 100 / CREDIT_TO_GBP
+    );
 
-      user.credits -= creditsUsed;
+    user.credits -= creditsUsed;
 
-      user.subscription = {
-        startedWithCredits: true,
-        creditedPeriods: periodsCovered,
-      };
+    user.subscription = {
+      startedWithCredits: true,
+      creditedPeriods: periodsCovered,
+    };
 
-      await user.save();
-    }
+    await user.save();
 
     return NextResponse.json({
-      url: checkout.url,
-      usedCredits: useCredits,
+      url: sessionStripe.url,
+      periodsCovered,
     });
   } catch (err) {
     console.error(err);
 
     return NextResponse.json(
-      { error: "Checkout failed", details: err.message },
+      { error: "Credits checkout failed" },
       { status: 500 }
     );
   }
