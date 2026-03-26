@@ -1,10 +1,10 @@
 // src/app/account/page.js
-
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import UsernameForm from "@/components/forms/UsernameForm";
 import PageSettingsForm from "@/components/forms/PageSettingsForm";
 import PageButtonsForm from "@/components/forms/PageButtonsForm";
 import PageLinksForm from "@/components/forms/PageLinksForm";
+import BanPanel from "@/components/admin/BanPanel";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -13,82 +13,75 @@ import { Page } from "@/models/Page";
 
 export default async function AccountPage() {
   const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
+  const email = (session?.user?.email || "").toLowerCase().trim();
 
   if (!email) return null;
 
   await mongoose.connect(process.env.MONGO_URI);
 
   const page = await Page.findOne({ owner: email }).lean();
-  const username = page?.uri;
+  const username = page?.uri || "";
+
+  const isFounderAdmin = email === "mrrunknown44@gmail.com";
 
   if (!username) {
     return (
-      <DashboardShell title="Create your page">
-        <div className="max-w-xl mx-auto">
-          <UsernameForm />
+      <DashboardShell
+        title="Pick your username"
+        subtitle="This becomes your public link."
+        activeTab="page"
+      >
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
+          <UsernameForm desiredUsername="" />
         </div>
+
+        {isFounderAdmin ? <BanPanel /> : null}
       </DashboardShell>
     );
   }
 
   return (
-    <DashboardShell title="Dashboard">
-      <div className="max-w-5xl mx-auto space-y-8">
-
-        {/* HEADER */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">
-              Your Page
-            </h1>
-            <p className="text-white/50 mt-1">
-              Manage your profile, design and links
-            </p>
-          </div>
+    <DashboardShell
+      title="My Page"
+      subtitle="Update your profile, buttons and links."
+      activeTab="page"
+    >
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-xl font-extrabold">Profile</h2>
 
           <a
             href={`/${username}`}
-            target="_blank"
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition text-sm"
+            className="text-sm text-blue-400 underline hover:text-blue-300"
           >
-            View Page →
+            View public page →
           </a>
         </div>
 
-        {/* PROFILE */}
-        <Card title="Profile" desc="Your name, bio and avatar">
-          <PageSettingsForm page={page} user={session.user} />
-        </Card>
+        <PageSettingsForm page={page} user={session.user} />
+      </section>
 
-        {/* DESIGN */}
-        <Card title="Design" desc="Customize your page appearance">
-          <PageSettingsForm page={page} user={session.user} />
-        </Card>
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <h2 className="mb-3 text-xl font-extrabold">Buttons</h2>
 
-        {/* BUTTONS */}
-        <Card title="Buttons" desc="Social icons under your bio">
-          <PageButtonsForm page={page} />
-        </Card>
+        <p className="mb-6 text-sm text-gray-400">
+          Small circular icons shown under your bio.
+        </p>
 
-        {/* LINKS */}
-        <Card title="Links" desc="Cards shown on your page">
-          <PageLinksForm page={page} />
-        </Card>
-      </div>
+        <PageButtonsForm page={page} />
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <h2 className="mb-3 text-xl font-extrabold">Links</h2>
+
+        <p className="mb-6 text-sm text-gray-400">
+          Clickable cards displayed on your public page.
+        </p>
+
+        <PageLinksForm page={page} />
+      </section>
+
+      {isFounderAdmin ? <BanPanel /> : null}
     </DashboardShell>
-  );
-}
-
-function Card({ title, desc, children }) {
-  return (
-    <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.02] p-6 shadow-xl">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold">{title}</h2>
-        <p className="text-sm text-white/50">{desc}</p>
-      </div>
-
-      {children}
-    </section>
   );
 }
