@@ -1,4 +1,3 @@
-Here’s a **fully up-to-date, production-quality README** based on the actual codebase (not the outdated one in the repo):
 
 ---
 
