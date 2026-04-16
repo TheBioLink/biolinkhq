@@ -1,89 +1,296 @@
-<div align="center" id="top" className="mb-10">
-<img src="./public/assets/logo.webp" alt="icon" width="150" height="150" />
+Here’s a **fully up-to-date, production-quality README** based on the actual codebase (not the outdated one in the repo):
 
-&#xa0;
+---
 
-  <img src="./public/assets/logo.webp" alt="preview" />
+# 🚀 BiolinkHQ
 
-<a href="https:///">Demo</a>
+**BiolinkHQ** is a full-stack, production-ready **link-in-bio platform** built with modern web technologies.
 
-</div>
+It allows users to create a **customisable personal page**, manage links, track analytics, and monetise through subscriptions and credits — all from a clean dashboard.
 
-# Biolinkhq by itsnicbtw
+---
 
-This project has been rebranded as **Biolinkhq by itsnicbtw**. It is a full‑stack “link in bio” application built with Next.js, Tailwind CSS and MongoDB. It allows users to create a personalized page with links to their content across the internet, customize their profile, and view analytics on their links.
+## ✨ Features
 
-## Table of Contents
+### 🔐 Authentication
 
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+* Google OAuth via **NextAuth**
+* MongoDB-backed sessions
+* Built-in **ban system** (email + username level)
 
-## Features
+---
 
-- **Authentication**: Secure login and registration system.
-- **Hero Form Registration**: Enhanced registration form with real-time validation.
-- **User Panel**: A dashboard for users to customize their profile, manage links, and view analytics.
-  - **Sidebar**: Easy navigation within the user panel.
-  - **Basic Profile Info**: Users can update their basic information like name, bio, and profile picture.
-  - **Buttons**: Customizable buttons for social media and other links.
-  - **Links**: Users can add, edit, and organize links that appear on their public page.
-- **Public Page**: A personalized public page for each user, showcasing their profile info, links, and buttons.
-- **Analytics**: Insights on how many clicks each link receives.
-- **Deployment**: Guide on deploying the project to production.
+### 🧑‍💻 User Dashboard
 
-## Technology Stack
+* Create and manage your personal page
+* Custom username (`/yourname`)
+* Edit:
 
-- **Frontend**: Next.js, Tailwind CSS
-- **Backend**: Next.js API Routes
-- **Database**: MongoDB
-- **Authentication**: NextAuth
-- **Deployment**: Vercel, MongoDB Atlas
+  * Profile info (name, bio, location)
+  * Profile & banner images
+  * Background (color/image)
+  * Social buttons
+  * Link cards
+* Live preview via public page
 
-## Getting Started
+---
 
-To get a local copy up and running follow these simple steps.
+### 🌐 Public Profile Pages
 
-### Prerequisites
+* Dynamic route: `/[uri]`
+* Fully styled personal “mini website”
+* Includes:
 
-- Node.js
-- MongoDB
+  * Avatar + banner
+  * Bio + location
+  * Buttons + links
+* Built-in:
 
-### Installation
+  * **Analytics tracking**
+  * **Share system**
+  * **Ban protection (page + owner)**
 
-1. Clone the repo
-   ```sh
-   git clone <your‑forked‑repo-url>
-   ```
-2. Install NPM packages
-   ```sh
-   npm install
-   ```
-3. Create a `.env.local` file and add your MongoDB URI and NextAuth URL
-   ```
-   MONGO_URI=your_mongodb_uri
-   NEXTAUTH_URL=http://localhost:3000
-   ```
-4. Run the development server
-   ```sh
-   npm run dev
-   ```
+---
 
-## Project Structure
+### 📊 Advanced Analytics
 
-- `pages/api`: Backend logic and API routes.
-- `pages`: Frontend pages and components.
-- `components`: Reusable UI components.
-- `models`: Mongoose models for MongoDB.
-- `styles`: Global styles and Tailwind configuration.
+Tracks:
 
-## Contributing
+* Page views
+* Unique visitors
+* Link clicks
+* Shares (copy, native, X, etc.)
+* Devices, browsers, OS
+* Countries
+* Referrers
 
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+All data is:
 
-## License
+* Stored in MongoDB
+* Privacy-conscious (anonymous IDs)
+* Viewable in dashboard (last 30 days)
 
-Distributed under the MIT License. See `LICENSE` for more information.
+---
+
+### ☁️ Media Uploads
+
+* Powered by **Cloudinary**
+* Supports:
+
+  * Profile images
+  * Banner images
+* Auto-resizing + optimisation
+
+---
+
+### 💳 Monetisation (Stripe)
+
+* Subscription system (free → premium tiers)
+* Stored on `Page` model
+* Includes:
+
+  * Plan tracking
+  * Billing cycle
+  * Trial support
+  * Subscription state
+
+---
+
+### 💰 Credits System
+
+* Internal credit balance per user/page
+* Transactions:
+
+  * Grant
+  * Spend
+  * Refund
+* Admin-controlled distribution
+
+---
+
+### 🛡️ Admin System
+
+* Ban users by:
+
+  * Email
+  * Username (URI)
+* Founder/admin access (hardcoded)
+* Admin panel in dashboard
+
+---
+
+### 📈 Event Tracking System
+
+* Stores detailed events:
+
+  * Page views
+  * Clicks
+  * Shares
+* Includes metadata:
+
+  * Device type
+  * Browser
+  * OS
+  * Country
+  * Referrer
+
+---
+
+### 🧠 Extra Features
+
+* Referral system
+* Job application system (internal hiring page)
+* Trust/feedback collector
+* Premium UI components
+
+---
+
+## 🧱 Tech Stack
+
+### Frontend
+
+* **Next.js 14 (App Router)**
+* React 18
+* Tailwind CSS
+
+### Backend
+
+* Next.js API Routes
+* Node.js runtime
+
+### Database
+
+* MongoDB
+* Mongoose
+
+### Auth
+
+* NextAuth
+* MongoDB Adapter
+
+### Storage
+
+* Cloudinary (images)
+
+### Payments
+
+* Stripe
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── app/
+│   ├── (website)/        # Public marketing pages
+│   ├── (app)/            # Authenticated dashboard
+│   ├── (page)/[uri]/     # Public user pages
+│   └── api/              # Backend API routes
+│
+├── components/           # UI components
+├── models/               # Mongoose schemas
+├── libs/                 # External integrations (Mongo, Stripe, Cloudinary, Analytics)
+├── actions/              # Server actions
+```
+
+---
+
+## 🔌 API Routes
+
+Key endpoints:
+
+* `/api/auth/[...nextauth]` → Authentication
+* `/api/upload` → Cloudinary uploads
+* `/api/analytics/track` → Event tracking
+* `/api/stats` → Platform stats
+* `/api/credits/give` → Admin credit system
+* `/api/stripe/*` → Billing / subscriptions
+
+---
+
+## ⚙️ Environment Variables
+
+Create a `.env.local` file:
+
+```env
+# MongoDB
+MONGO_URI=
+
+# Auth
+NEXTAUTH_URL=
+NEXTAUTH_SECRET=
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_UPLOAD_FOLDER=biolinkhq
+
+# Stripe
+STRIPE_SECRET_KEY=
+```
+
+---
+
+## 🚀 Getting Started
+
+```bash
+# 1. Clone repo
+git clone https://github.com/TheBioLink/biolinkhq.git
+
+# 2. Install deps
+npm install
+
+# 3. Add env variables
+# (see above)
+
+# 4. Run dev server
+npm run dev
+```
+
+App runs on:
+
+```
+http://localhost:3000
+```
+
+---
+
+## 🧠 Key Design Decisions
+
+* **App Router over Pages Router**
+* **Server-first architecture** (Next.js 14)
+* **MongoDB for flexibility + scaling**
+* **Event-based analytics instead of simple counters**
+* **Separation of public / dashboard / profile routes**
+* **No sensitive data exposed to frontend**
+
+---
+
+## ⚠️ Notes
+
+* README in original repo is outdated — project now uses `src/app`, not `pages/`
+* Google OAuth is currently required (no email/password)
+* Admin access is currently hardcoded (should be role-based in production)
+* Stripe flows are partially implemented but extensible
+
+---
+
+## 🔮 Future Improvements
+
+* Email/password auth option
+* Role-based admin system
+* Multi-provider OAuth
+* Real-time analytics dashboard
+* Better rate limiting / abuse protection
+* Public API for developers
+
+---
+
+## 📄 License
+
+MIT License
