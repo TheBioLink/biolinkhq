@@ -81,6 +81,7 @@ export default async function DashboardShell({
             >
               <FontAwesomeIcon icon={faChartLine} className="h-4 w-4" />
               <span>Analytics</span>
+            <Link href="/account/messages" className={navClass(activeTab === "messages")}>💬 Messages</Link>
             </Link>
 
             <Link href="/api/auth/signout" className={navClass(false)}>
