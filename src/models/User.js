@@ -13,10 +13,8 @@ const SubscriptionSchema = new Schema(
     current_period_end: Date,
     has_paid: { type: Boolean, default: false },
     cancelled_at: Date,
-
-    // 🔥 IMPORTANT FOR SPLITS
     startedWithCredits: { type: Boolean, default: false },
-    creditOriginUserId: { type: String, default: null }, // who funded credits
+    creditOriginUserId: { type: String, default: null },
   },
   { _id: false }
 );
@@ -33,7 +31,11 @@ const UserSchema = new Schema(
     referralCode: String,
     referredBy: String,
 
-    // 🔥 referral tracking
+    blockedUsers: {
+      type: [String],
+      default: [],
+    },
+
     referralEarnings: [
       {
         referredUser: String,
@@ -42,7 +44,6 @@ const UserSchema = new Schema(
       },
     ],
 
-    // 🔥 credit usage tracking
     creditSubscriptions: [
       {
         startedAt: Date,
