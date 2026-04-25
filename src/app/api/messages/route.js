@@ -47,6 +47,23 @@ export async function GET(req) {
     return NextResponse.json({ reports });
   }
 
+  if (searchParams.get("blocked") === "1") {
+    const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
+    const blockedEmails = (meUser?.blockedUsers || []).map(norm);
+
+    const pages = await Page.find({ owner: { $in: blockedEmails } })
+      .select("uri owner displayName profileImage")
+      .lean();
+
+    return NextResponse.json({
+      blocked: pages.map((p) => ({
+        username: p.uri,
+        displayName: p.displayName || p.uri,
+        profileImage: p.profileImage || "",
+      })),
+    });
+  }
+
   if (!username) {
     const recent = await Message.find({
       $or: [{ fromEmail: meEmail }, { toEmail: meEmail }],
@@ -64,7 +81,10 @@ export async function GET(req) {
       }
     }
 
-    const otherEmails = Array.from(latestByEmail.keys());
+    const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
+    const blockedSet = new Set((meUser?.blockedUsers || []).map(norm));
+    const otherEmails = Array.from(latestByEmail.keys()).filter((email) => !blockedSet.has(email));
+
     const pages = await Page.find({ owner: { $in: otherEmails } })
       .select("uri owner displayName profileImage")
       .lean();
@@ -98,7 +118,7 @@ export async function GET(req) {
 
   const meUser = await User.findOne({ email: meEmail }).lean();
   if (meUser?.blockedUsers?.includes(otherEmail)) {
-    return NextResponse.json({ messages: [] });
+    return NextResponse.json({ messages: [], blocked: true });
   }
 
   const messages = await Message.find({
@@ -120,6 +140,7 @@ export async function GET(req) {
 
   return NextResponse.json({
     messages: formatted,
+    blocked: false,
     target: {
       username: targetPage.uri,
       displayName: targetPage.displayName || targetPage.uri,
@@ -171,7 +192,7 @@ export async function PATCH(req) {
   const { action, username, reason } = await req.json();
 
   const targetPage = await Page.findOne({ uri: username }).lean();
-  if (!targetPage) return NextResponse.json({ error: "User not found" });
+  if (!targetPage) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const meEmail = norm(session.user.email);
   const otherEmail = norm(targetPage.owner);
@@ -181,6 +202,14 @@ export async function PATCH(req) {
       { email: meEmail },
       { $addToSet: { blockedUsers: otherEmail } },
       { upsert: true }
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "unblock") {
+    await User.updateOne(
+      { email: meEmail },
+      { $pull: { blockedUsers: otherEmail } }
     );
     return NextResponse.json({ ok: true });
   }
