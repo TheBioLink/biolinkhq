@@ -18,7 +18,7 @@ export async function PUT(req) {
   if (!query) return NextResponse.json({ users: [] });
 
   const users = await Page.find({ uri: { $regex: query, $options: "i" } })
-    .select("uri displayName")
+    .select("uri displayName profileImage")
     .limit(10)
     .lean();
 
@@ -47,7 +47,49 @@ export async function GET(req) {
     return NextResponse.json({ reports });
   }
 
-  if (!username) return NextResponse.json({ messages: [] });
+  if (!username) {
+    const recent = await Message.find({
+      $or: [{ fromEmail: meEmail }, { toEmail: meEmail }],
+    })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    const latestByEmail = new Map();
+
+    for (const msg of recent) {
+      const otherEmail = norm(msg.fromEmail === meEmail ? msg.toEmail : msg.fromEmail);
+      if (!latestByEmail.has(otherEmail)) {
+        latestByEmail.set(otherEmail, msg);
+      }
+    }
+
+    const otherEmails = Array.from(latestByEmail.keys());
+    const pages = await Page.find({ owner: { $in: otherEmails } })
+      .select("uri owner displayName profileImage")
+      .lean();
+
+    const pageByOwner = new Map(pages.map((p) => [norm(p.owner), p]));
+
+    const conversations = otherEmails
+      .map((email) => {
+        const page = pageByOwner.get(email);
+        const msg = latestByEmail.get(email);
+        if (!page) return null;
+
+        return {
+          username: page.uri,
+          displayName: page.displayName || page.uri,
+          profileImage: page.profileImage || "",
+          lastMessage: msg.body,
+          isMine: msg.fromEmail === meEmail,
+          updatedAt: msg.createdAt,
+        };
+      })
+      .filter(Boolean);
+
+    return NextResponse.json({ conversations });
+  }
 
   const targetPage = await Page.findOne({ uri: username }).lean();
   if (!targetPage) return NextResponse.json({ messages: [] });
@@ -76,7 +118,14 @@ export async function GET(req) {
     createdAt: m.createdAt,
   }));
 
-  return NextResponse.json({ messages: formatted, target: username });
+  return NextResponse.json({
+    messages: formatted,
+    target: {
+      username: targetPage.uri,
+      displayName: targetPage.displayName || targetPage.uri,
+      profileImage: targetPage.profileImage || "",
+    },
+  });
 }
 
 export async function POST(req) {
@@ -88,6 +137,10 @@ export async function POST(req) {
   await mongoose.connect(process.env.MONGO_URI);
 
   const { username, body } = await req.json();
+
+  if (!username || !body?.trim()) {
+    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  }
 
   const targetPage = await Page.findOne({ uri: username }).lean();
   if (!targetPage) {
@@ -102,7 +155,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "User blocked" }, { status: 403 });
   }
 
-  await Message.create({ fromEmail: meEmail, toEmail: otherEmail, body });
+  await Message.create({ fromEmail: meEmail, toEmail: otherEmail, body: body.trim() });
 
   return NextResponse.json({ ok: true });
 }
@@ -126,18 +179,34 @@ export async function PATCH(req) {
   if (action === "block") {
     await User.updateOne(
       { email: meEmail },
-      { $addToSet: { blockedUsers: otherEmail } }
+      { $addToSet: { blockedUsers: otherEmail } },
+      { upsert: true }
     );
     return NextResponse.json({ ok: true });
   }
 
   if (action === "report") {
+    const recentMessages = await Message.find({
+      $or: [
+        { fromEmail: meEmail, toEmail: otherEmail },
+        { fromEmail: otherEmail, toEmail: meEmail },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
     await MessageReport.create({
       reporterEmail: meEmail,
-      reporterUsername: username,
+      reporterUsername: (await Page.findOne({ owner: meEmail }).lean())?.uri || "",
       reportedEmail: otherEmail,
-      reportedUsername: username,
+      reportedUsername: targetPage.uri,
       reason,
+      recentMessages: recentMessages.reverse().map((m) => ({
+        fromUsername: m.fromEmail === meEmail ? "reporter" : targetPage.uri,
+        body: m.body,
+        createdAt: m.createdAt,
+      })),
     });
     return NextResponse.json({ ok: true });
   }
