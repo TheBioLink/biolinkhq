@@ -26,6 +26,9 @@ export default function HamburgerMenu({ session }) {
             <Link href="/pricing" onClick={() => setOpen(false)} className="hover:text-white">
               Pricing
             </Link>
+            <Link href="/news" onClick={() => setOpen(false)} className="hover:text-white">
+              News
+            </Link>
             <Link href="/contact" onClick={() => setOpen(false)} className="hover:text-white">
               Contact
             </Link>
