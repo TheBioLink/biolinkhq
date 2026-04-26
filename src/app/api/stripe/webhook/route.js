@@ -15,7 +15,7 @@ async function connectDB() {
 export async function POST(req) {
   await connectDB();
 
-  const body = await req.text(); // 🔥 raw body required
+  const body = await req.text();
   const sig = headers().get("stripe-signature");
 
   let event;
@@ -27,14 +27,32 @@ export async function POST(req) {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error("❌ Webhook error:", err.message);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  // 💳 PAYMENT SUCCESS
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+
+    const email = session.customer_email?.toLowerCase();
+
+    if (email) {
+      await User.updateOne(
+        {
+          email,
+          stripeBadgeSessions: { $ne: session.id },
+        },
+        {
+          $inc: { customBadgeCredits: 3 },
+          $push: { stripeBadgeSessions: session.id },
+        }
+      );
+    }
+  }
+
+  // EXISTING LOGIC BELOW
+
   if (event.type === "invoice.payment_succeeded") {
     const invoice = event.data.object;
-
     const email = invoice.customer_email;
 
     const user = await User.findOne({ email });
@@ -51,18 +69,13 @@ export async function POST(req) {
       }
 
       await user.save();
-
       await handleReferralPurchase(user, "stripe_subscription");
     }
   }
 
-  // ❌ PAYMENT FAILED
   if (event.type === "invoice.payment_failed") {
     const invoice = event.data.object;
-
-    const user = await User.findOne({
-      email: invoice.customer_email,
-    });
+    const user = await User.findOne({ email: invoice.customer_email });
 
     if (user) {
       user.subscription.status = "past_due";
@@ -70,11 +83,8 @@ export async function POST(req) {
     }
   }
 
-  // 🚫 SUB CANCELLED
   if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object;
-
-    // 🔥 safer: fetch email from Stripe
     const customer = await stripe.customers.retrieve(sub.customer);
     const email = customer.email;
 
@@ -83,15 +93,12 @@ export async function POST(req) {
     if (user) {
       user.subscription.status = "canceled";
       user.subscription.cancelled_at = new Date();
-
       await user.save();
     }
   }
 
-  // 💳 PAYMENT METHOD ADDED
   if (event.type === "payment_method.attached") {
     const pm = event.data.object;
-
     const customer = await stripe.customers.retrieve(pm.customer);
     const email = customer.email;
 
