@@ -108,6 +108,26 @@ export async function POST(req) {
       update.bgColor = cleanText(data.bgColor, 32) || "#0b0f14";
     }
 
+    if (Object.prototype.hasOwnProperty.call(data, "isTeam")) {
+      update.isTeam = Boolean(data.isTeam);
+    }
+
+    if (data.teamData) {
+      update.teamData = {
+        tagline: cleanText(data.teamData.tagline, 80),
+        description: cleanText(data.teamData.description, 300),
+        game: cleanText(data.teamData.game, 50),
+        region: cleanText(data.teamData.region, 50),
+        recruiting: Boolean(data.teamData.recruiting),
+        members: Array.isArray(data.teamData.members)
+          ? data.teamData.members.slice(0, 25).map(m => ({
+              username: cleanText(m.username, 40),
+              role: cleanText(m.role, 40),
+            }))
+          : [],
+      };
+    }
+
     const page = await Page.findOneAndUpdate(
       { owner: email },
       { $set: update },
