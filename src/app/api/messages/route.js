@@ -6,10 +6,16 @@ import { Message } from "@/models/Message";
 import { Page } from "@/models/Page";
 import { User } from "@/models/User";
 import { MessageReport } from "@/models/MessageReport";
+import { Ban } from "@/models/Ban";
 
 export const runtime = "nodejs";
 
 const norm = (s) => (s || "").toLowerCase().trim();
+
+async function getAdminContext(email) {
+  const myPage = await Page.findOne({ owner: email }).lean();
+  return { myPage, isAdmin: myPage?.uri === "itsnicbtw" };
+}
 
 export async function PUT(req) {
   await mongoose.connect(process.env.MONGO_URI);
@@ -37,9 +43,11 @@ export async function GET(req) {
   const username = searchParams.get("user");
 
   const meEmail = norm(session.user.email);
-  const myPage = await Page.findOne({ owner: meEmail }).lean();
+  const { isAdmin } = await getAdminContext(meEmail);
 
-  if (searchParams.get("admin") === "1" && myPage?.uri === "itsnicbtw") {
+  if (searchParams.get("admin") === "1") {
+    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const reports = await MessageReport.find({ status: "open" })
       .sort({ createdAt: -1 })
       .limit(50)
@@ -189,12 +197,55 @@ export async function PATCH(req) {
 
   await mongoose.connect(process.env.MONGO_URI);
 
-  const { action, username, reason } = await req.json();
+  const { action, username, reason, reportId, status } = await req.json();
+  const meEmail = norm(session.user.email);
+  const { isAdmin } = await getAdminContext(meEmail);
+
+  if (action === "report-status") {
+    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    await MessageReport.updateOne(
+      { _id: reportId },
+      { $set: { status: status || "reviewed" } }
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "ban-reported") {
+    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const report = await MessageReport.findById(reportId).lean();
+    if (!report) return NextResponse.json({ error: "Report not found" }, { status: 404 });
+
+    const reportedEmail = norm(report.reportedEmail);
+    const reportedUsername = norm(report.reportedUsername);
+    const banReason = reason || `Banned from message report: ${report.reason || "No reason provided"}`;
+
+    await Ban.updateOne(
+      { type: "email", identifier: reportedEmail },
+      { $set: { reason: banReason, bannedBy: meEmail } },
+      { upsert: true }
+    );
+
+    if (reportedUsername) {
+      await Ban.updateOne(
+        { type: "uri", identifier: reportedUsername },
+        { $set: { reason: banReason, bannedBy: meEmail } },
+        { upsert: true }
+      );
+    }
+
+    await Page.deleteOne({ owner: reportedEmail });
+    await MessageReport.updateOne(
+      { _id: reportId },
+      { $set: { status: "closed" } }
+    );
+
+    return NextResponse.json({ ok: true });
+  }
 
   const targetPage = await Page.findOne({ uri: username }).lean();
   if (!targetPage) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const meEmail = norm(session.user.email);
   const otherEmail = norm(targetPage.owner);
 
   if (action === "block") {
