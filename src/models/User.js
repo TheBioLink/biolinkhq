@@ -25,6 +25,8 @@ const UserSchema = new Schema(
     name: String,
 
     credits: { type: Number, default: 0 },
+    customBadgeCredits: { type: Number, default: 0 },
+    stripeBadgeSessions: { type: [String], default: [] },
 
     hasPaymentMethod: { type: Boolean, default: false },
 
