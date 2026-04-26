@@ -17,6 +17,7 @@ export async function getBadgeModels() {
         claimLimit: { type: Number, default: 0 },
         claimEndsAt: { type: Date, default: null },
         isActive: { type: Boolean, default: true },
+        isCustom: { type: Boolean, default: false },
       },
       { timestamps: true }
     );
