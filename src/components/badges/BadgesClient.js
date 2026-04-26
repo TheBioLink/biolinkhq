@@ -150,7 +150,7 @@ export default function BadgesClient() {
             </div>
             <h2 className="mt-2 text-2xl font-black">Make your own badges</h2>
             <p className="mt-2 text-sm text-white/50">
-              Pay £1.50 to unlock 3 custom badge credits. Once Stripe confirms payment through the webhook, your credits appear here.
+              Pay £1.50 to unlock 3 custom badge credits, your credits appear here.
             </p>
           </div>
 
