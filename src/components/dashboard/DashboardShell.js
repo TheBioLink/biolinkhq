@@ -24,12 +24,7 @@ function mobileNavClass(active) {
     : "flex min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-white/55 hover:bg-white/5 hover:text-white";
 }
 
-export default async function DashboardShell({
-  title,
-  subtitle,
-  activeTab = "page",
-  children,
-}) {
+export default async function DashboardShell({ title, subtitle, activeTab = "page", children }) {
   const session = await getServerSession(authOptions);
   const email = (session?.user?.email || "").toLowerCase().trim();
   let page = null;
@@ -44,6 +39,7 @@ export default async function DashboardShell({
     { href: "/account", label: "My Page", icon: faFileLines, tab: "page" },
     { href: "/account/messages", label: "Messages", icon: faCommentDots, tab: "messages" },
     { href: "/account/badges", label: "Badges", icon: faFlag, tab: "badges" },
+    ...(isAdmin ? [{ href: "/account/articles", label: "Articles", icon: faFileLines, tab: "articles" }] : []),
     ...(isAdmin ? [{ href: "/account/reports", label: "Reports", icon: faFlag, tab: "reports" }] : []),
     { href: "/account/analytics", label: "Analytics", icon: faChartLine, tab: "analytics" },
   ];
