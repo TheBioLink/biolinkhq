@@ -7,10 +7,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faFileLines,
   faChartLine,
-  faCreditCard,
   faArrowRightFromBracket,
-  faArrowLeft,
   faCommentDots,
+  faFlag,
 } from "@fortawesome/free-solid-svg-icons";
 
 function navClass(active) {
@@ -33,6 +32,8 @@ export default async function DashboardShell({
     page = await Page.findOne({ owner: email }).lean();
   }
 
+  const isAdmin = page?.uri === "itsnicbtw";
+
   return (
     <div className="min-h-screen bg-[#0a0f1a] text-white">
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 lg:px-8">
@@ -47,6 +48,13 @@ export default async function DashboardShell({
               <FontAwesomeIcon icon={faCommentDots} className="h-4 w-4" />
               <span>Messages</span>
             </Link>
+
+            {isAdmin && (
+              <Link href="/account/reports" className={navClass(activeTab === "reports")}>
+                <FontAwesomeIcon icon={faFlag} className="h-4 w-4" />
+                <span>Reports</span>
+              </Link>
+            )}
 
             <Link href="/account/analytics" className={navClass(activeTab === "analytics")}> 
               <FontAwesomeIcon icon={faChartLine} className="h-4 w-4" />
