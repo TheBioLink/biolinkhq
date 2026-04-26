@@ -22,12 +22,15 @@ async function getContext() {
 
   const email = norm(session.user.email);
   const page = await Page.findOne({ owner: email }).lean();
+  const username = norm(page?.uri);
+  const adminUsername = norm(process.env.BADGE_ADMIN_USERNAME || "itsnicbtw");
 
   return {
     session,
     email,
     page,
-    isAdmin: page?.uri === "itsnicbtw",
+    username,
+    isAdmin: username === adminUsername,
   };
 }
 
@@ -46,6 +49,7 @@ export async function GET() {
       badges,
       myBadges,
       isAdmin: ctx.isAdmin,
+      username: ctx.username,
     });
   } catch (error) {
     console.error("Badges GET error:", error);
