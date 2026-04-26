@@ -26,6 +26,9 @@ export default async function Header() {
           <Link href="/pricing" className="hover:text-white hover:underline">
             Pricing
           </Link>
+          <Link href="/news" className="hover:text-white hover:underline">
+            News
+          </Link>
           <Link href="/contact" className="hover:text-white hover:underline">
             Contact
           </Link>
