@@ -43,6 +43,7 @@ export default async function DashboardShell({
   const links = [
     { href: "/account", label: "My Page", icon: faFileLines, tab: "page" },
     { href: "/account/messages", label: "Messages", icon: faCommentDots, tab: "messages" },
+    { href: "/account/badges", label: "Badges", icon: faFlag, tab: "badges" },
     ...(isAdmin ? [{ href: "/account/reports", label: "Reports", icon: faFlag, tab: "reports" }] : []),
     { href: "/account/analytics", label: "Analytics", icon: faChartLine, tab: "analytics" },
   ];
