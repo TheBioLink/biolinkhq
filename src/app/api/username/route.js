@@ -11,7 +11,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { username } = await req.json();
+  const { username, isTeam } = await req.json();
   const uri = (username || "").trim().toLowerCase();
 
   if (!uri || uri.length < 2) {
@@ -32,7 +32,11 @@ export async function POST(req) {
 
   await Page.findOneAndUpdate(
     { owner },
-    { owner, uri },
+    {
+      owner,
+      uri,
+      isTeam: Boolean(isTeam),
+    },
     { upsert: true, new: true }
   );
 
