@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { Page } from "@/models/Page";
 import { User } from "@/models/User";
 import { Ban } from "@/models/Ban";
+import { getBadgeModels } from "@/models/Badge";
 import PublicLinks from "@/components/PublicLinks";
 import ProfileShareButton from "@/components/ProfileShareButton";
 import ProfileAnalyticsTracker from "@/components/analytics/ProfileAnalyticsTracker";
@@ -51,6 +52,27 @@ function Badge({ children, tone = "blue" }) {
   return <span className={`${base} ${tones[tone] || tones.blue}`}>{children}</span>;
 }
 
+function ProfileBadgeIcon({ badge }) {
+  return (
+    <span
+      title={badge.name}
+      className="inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/10 shadow-lg transition hover:scale-105"
+    >
+      {badge.icon ? (
+        <img
+          src={badge.icon}
+          alt={badge.name}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span className="text-xs font-black text-white/75">
+          {(badge.name || "?").slice(0, 1).toUpperCase()}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default async function PageByUri({ params }) {
   const { uri } = params;
 
@@ -87,6 +109,27 @@ export default async function PageByUri({ params }) {
   }
 
   const user = await User.findOne({ email: page.owner }).lean();
+
+  let publicBadges = [];
+
+  try {
+    const { BadgeModel, UserBadgeModel } = await getBadgeModels();
+    const ownedBadges = await UserBadgeModel.find({
+      ownerEmail,
+      visible: true,
+    }).lean();
+
+    const badgeIds = ownedBadges.map((item) => item.badgeId).filter(Boolean);
+
+    if (badgeIds.length) {
+      publicBadges = await BadgeModel.find({
+        _id: { $in: badgeIds },
+        isActive: { $ne: false },
+      }).lean();
+    }
+  } catch (error) {
+    console.error("Failed to load public profile badges:", error);
+  }
 
   const bgStyle =
     page.bgType === "image" && page.bgImage
@@ -138,10 +181,13 @@ export default async function PageByUri({ params }) {
                       {page.displayName || user?.name || page.uri}
                     </h1>
 
-                    {(isFounder || isOfficial) && (
-                      <div className="mt-2 flex flex-wrap gap-2">
+                    {(isFounder || isOfficial || publicBadges.length > 0) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         {isFounder ? <Badge tone="gold">Founder</Badge> : null}
                         {isOfficial ? <Badge>Official</Badge> : null}
+                        {publicBadges.map((badge) => (
+                          <ProfileBadgeIcon key={String(badge._id)} badge={badge} />
+                        ))}
                       </div>
                     )}
                   </div>
