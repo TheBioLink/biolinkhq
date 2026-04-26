@@ -2,6 +2,16 @@ import mongoose from "mongoose";
 
 const { model, models, Schema } = mongoose;
 
+const ReportMessageSnapshotSchema = new Schema(
+  {
+    fromUsername: { type: String, default: "" },
+    fromEmail: { type: String, default: "" },
+    body: { type: String, default: "" },
+    createdAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const MessageReportSchema = new Schema(
   {
     reporterEmail: { type: String, required: true, lowercase: true, trim: true, index: true },
@@ -15,14 +25,12 @@ const MessageReportSchema = new Schema(
       default: "open",
       index: true,
     },
+    messageLog: {
+      type: [ReportMessageSnapshotSchema],
+      default: [],
+    },
     recentMessages: {
-      type: [
-        {
-          fromUsername: { type: String, default: "" },
-          body: { type: String, default: "" },
-          createdAt: { type: Date, default: null },
-        },
-      ],
+      type: [ReportMessageSnapshotSchema],
       default: [],
     },
   },
