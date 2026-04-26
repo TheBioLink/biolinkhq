@@ -3,16 +3,36 @@ import { model, models, Schema } from "mongoose";
 
 const CreditTransactionSchema = new Schema(
   {
-    amount: { type: Number, required: true }, // + or -
+    amount: { type: Number, required: true },
     type: {
       type: String,
       enum: ["grant", "spend", "refund"],
       required: true,
     },
     note: { type: String, default: "" },
-    givenBy: { type: String, default: "" }, // admin email (itsnicbtw)
+    givenBy: { type: String, default: "" },
   },
   { timestamps: true }
+);
+
+const TeamMemberSchema = new Schema(
+  {
+    username: { type: String, default: "" },
+    role: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const TeamDataSchema = new Schema(
+  {
+    tagline: { type: String, default: "" },
+    description: { type: String, default: "" },
+    game: { type: String, default: "" },
+    region: { type: String, default: "" },
+    recruiting: { type: Boolean, default: false },
+    members: { type: [TeamMemberSchema], default: [] },
+  },
+  { _id: false }
 );
 
 const PageSchema = new Schema(
@@ -43,6 +63,10 @@ const PageSchema = new Schema(
       ],
       default: [],
     },
+
+    // ================= TEAM PROFILE SYSTEM =================
+    isTeam: { type: Boolean, default: false },
+    teamData: { type: TeamDataSchema, default: () => ({}) },
 
     // ================= 💰 CREDITS SYSTEM =================
     credits: { type: Number, default: 0 },
