@@ -5,6 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import cloudinary from "@/libs/cloudinary";
 import { getBadgeModels } from "@/models/Badge";
 import { Page } from "@/models/Page";
+import { User } from "@/models/User";
 
 const norm = (s) => (s || "").toString().toLowerCase().trim();
 
@@ -22,10 +23,11 @@ async function getContext() {
 
   const email = norm(session.user.email);
   const page = await Page.findOne({ owner: email }).lean();
+  const user = await User.findOne({ email }).lean();
   const username = norm(page?.uri);
   const adminUsername = norm(process.env.BADGE_ADMIN_USERNAME || "itsnicbtw");
 
-  return { email, page, username, isAdmin: username === adminUsername };
+  return { email, page, user, username, isAdmin: username === adminUsername };
 }
 
 async function uploadBadgeIcon(iconBase64) {
@@ -66,6 +68,7 @@ export async function GET() {
       myBadges,
       isAdmin: ctx.isAdmin,
       username: ctx.username,
+      customBadgeCredits: ctx.user?.customBadgeCredits || 0,
     });
   } catch (error) {
     console.error("Badges GET error:", error);
@@ -77,20 +80,43 @@ export async function POST(req) {
   try {
     const ctx = await getContext();
     if (ctx.error) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
-    if (!ctx.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { BadgeModel, UserBadgeModel } = await getBadgeModels();
     const body = await req.json();
 
+    const isCustom = Boolean(body?.isCustom);
+
+    if (!ctx.isAdmin && !isCustom) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const name = String(body?.name || "").trim();
-    const type = body?.type === "private" ? "private" : "public";
+    const type = ctx.isAdmin && body?.type === "private" ? "private" : "public";
     const assignTo = norm(body?.assignTo);
-    const claimLimit = Math.max(0, Number(body?.claimLimit || 0));
-    const claimEndsAt = body?.claimEndsAt ? new Date(body.claimEndsAt) : null;
+    const claimLimit = ctx.isAdmin ? Math.max(0, Number(body?.claimLimit || 0)) : 1;
+    const claimEndsAt = ctx.isAdmin && body?.claimEndsAt ? new Date(body.claimEndsAt) : null;
     const icon = await uploadBadgeIcon(body?.iconBase64 || "");
 
     if (!name || name.length < 2) {
       return NextResponse.json({ error: "Badge name must be at least 2 characters" }, { status: 400 });
+    }
+
+    if (isCustom && !icon) {
+      return NextResponse.json({ error: "Custom badges need an icon" }, { status: 400 });
+    }
+
+    if (isCustom) {
+      const creditUpdate = await User.updateOne(
+        { email: ctx.email, customBadgeCredits: { $gt: 0 } },
+        { $inc: { customBadgeCredits: -1 } }
+      );
+
+      if (creditUpdate.modifiedCount !== 1) {
+        return NextResponse.json(
+          { error: "You need custom badge credits. Buy 3 custom badges for £1.50 first." },
+          { status: 403 }
+        );
+      }
     }
 
     const badge = await BadgeModel.create({
@@ -101,9 +127,19 @@ export async function POST(req) {
       claimEndsAt,
       createdBy: ctx.email,
       isActive: true,
+      isCustom,
     });
 
-    if (type === "private" && assignTo) {
+    if (isCustom) {
+      await UserBadgeModel.create({
+        badgeId: badge._id,
+        ownerEmail: ctx.email,
+        visible: true,
+        grantedBy: ctx.email,
+      });
+    }
+
+    if (!isCustom && type === "private" && assignTo) {
       const target = await Page.findOne({ uri: assignTo }).lean();
       if (target?.owner) {
         await UserBadgeModel.updateOne(
