@@ -56,16 +56,17 @@ function ProfileBadgeIcon({ badge }) {
   return (
     <span
       title={badge.name}
-      className="inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/10 shadow-lg transition hover:scale-105"
+      aria-label={badge.name}
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/25 p-0.5 shadow-md transition hover:scale-110 hover:border-white/25"
     >
       {badge.icon ? (
         <img
           src={badge.icon}
           alt={badge.name}
-          className="h-full w-full object-cover"
+          className="h-full w-full rounded-full object-contain"
         />
       ) : (
-        <span className="text-xs font-black text-white/75">
+        <span className="leading-none text-sm font-black text-white/80">
           {(badge.name || "?").slice(0, 1).toUpperCase()}
         </span>
       )}
@@ -182,7 +183,7 @@ export default async function PageByUri({ params }) {
                     </h1>
 
                     {(isFounder || isOfficial || publicBadges.length > 0) && (
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {isFounder ? <Badge tone="gold">Founder</Badge> : null}
                         {isOfficial ? <Badge>Official</Badge> : null}
                         {publicBadges.map((badge) => (
