@@ -135,11 +135,13 @@ export default async function PublicProfilePage({ params }) {
 
           <div className="px-5 pb-8 pt-8 text-center">
             {page.profileImage && (
-              <img
-                src={page.profileImage}
-                alt={page.displayName}
-                className={`mx-auto h-28 w-28 rounded-full border-4 border-white/15 object-cover shadow-xl ${page.bannerImage ? "-mt-20" : ""}`}
-              />
+              <div className={`mx-auto h-28 w-28 overflow-hidden rounded-full bg-black/30 shadow-xl ring-1 ring-white/10 ${page.bannerImage ? "-mt-20" : ""}`}>
+                <img
+                  src={page.profileImage}
+                  alt={page.displayName}
+                  className="block h-full w-full object-cover"
+                />
+              </div>
             )}
 
             <h1 className="mt-5 text-3xl font-black tracking-tight text-white">
