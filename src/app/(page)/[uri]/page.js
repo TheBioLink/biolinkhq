@@ -1,9 +1,12 @@
 import mongoose from "mongoose";
 import { notFound } from "next/navigation";
 import { Page } from "@/models/Page";
+import { getBadgeModels } from "@/models/Badge";
 import PublicLinks from "@/components/PublicLinks";
 
 export const dynamic = "force-dynamic";
+
+const normalise = (value) => (value || "").toString().toLowerCase().trim();
 
 async function connectToDatabase() {
   if (mongoose.connection.readyState >= 1) return;
@@ -18,6 +21,7 @@ async function connectToDatabase() {
 function serialisePage(page) {
   return {
     uri: page.uri || "",
+    owner: normalise(page.owner),
     displayName: page.displayName || page.uri || "BioLinkHQ Profile",
     location: page.location || "",
     bio: page.bio || "",
@@ -32,6 +36,40 @@ function serialisePage(page) {
         }))
       : [],
   };
+}
+
+async function getVisibleBadgesForOwner(ownerEmail) {
+  if (!ownerEmail) return [];
+
+  const { BadgeModel, UserBadgeModel } = await getBadgeModels();
+
+  const ownedBadges = await UserBadgeModel.find({
+    ownerEmail: normalise(ownerEmail),
+    visible: { $ne: false },
+  }).lean();
+
+  const badgeIds = ownedBadges.map((badge) => badge.badgeId).filter(Boolean);
+  if (badgeIds.length === 0) return [];
+
+  const badges = await BadgeModel.find({
+    _id: { $in: badgeIds },
+    isActive: { $ne: false },
+  }).lean();
+
+  const ownershipOrder = new Map(
+    ownedBadges.map((badge, index) => [String(badge.badgeId), index])
+  );
+
+  return badges
+    .sort(
+      (a, b) =>
+        (ownershipOrder.get(String(a._id)) ?? 9999) -
+        (ownershipOrder.get(String(b._id)) ?? 9999)
+    )
+    .map((badge) => ({
+      name: badge?.name || "Badge",
+      icon: badge?.icon || "",
+    }));
 }
 
 export async function generateMetadata({ params }) {
@@ -79,12 +117,7 @@ export default async function PublicProfilePage({ params }) {
   if (!rawPage) notFound();
 
   const page = serialisePage(rawPage);
-  const badges = Array.isArray(rawPage.badges)
-    ? rawPage.badges.map((badge) => ({
-        name: badge?.name || "Badge",
-        icon: badge?.icon || "",
-      }))
-    : [];
+  const badges = await getVisibleBadgesForOwner(page.owner);
 
   return (
     <main className="min-h-screen text-white" style={{ backgroundColor: page.bgColor }}>
