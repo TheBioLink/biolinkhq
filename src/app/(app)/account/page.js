@@ -5,6 +5,7 @@ import PageSettingsForm from "@/components/forms/PageSettingsForm";
 import PageButtonsForm from "@/components/forms/PageButtonsForm";
 import PageLinksForm from "@/components/forms/PageLinksForm";
 import TeamProfileForm from "@/components/forms/TeamProfileForm";
+import TeamAdminPanel from "@/components/admin/TeamAdminPanel";
 import BanPanel from "@/components/admin/BanPanel";
 
 import { getServerSession } from "next-auth";
@@ -31,6 +32,7 @@ export default async function AccountPage() {
   }
 
   const isFounderAdmin = email === "mrrunknown44@gmail.com";
+  const isNic = page?.uri === "itsnicbtw";
 
   if (!username) {
     return (
@@ -60,6 +62,8 @@ export default async function AccountPage() {
           <TeamProfileForm team={team} />
         </section>
       )}
+
+      {isNic && <TeamAdminPanel />}
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
         <h2 className="mb-3 text-xl font-extrabold">Buttons</h2>
