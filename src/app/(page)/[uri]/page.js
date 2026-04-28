@@ -77,11 +77,20 @@ export default async function PublicProfilePage({ params }) {
               </div>
             )}
 
-            <h1 className="mt-5 text-3xl font-black">{page.displayName}</h1>
+            <div className="flex items-center justify-center gap-2 mt-5">
+              <h1 className="text-3xl font-black">{page.displayName}</h1>
 
-            {page.isTeam && (
-              <div className="mt-2 text-xs font-bold text-blue-300">TEAM</div>
-            )}
+              {page.isTeam && (
+                <div className="group relative">
+                  <div className="h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                    ✓
+                  </div>
+                  <div className="absolute top-8 left-1/2 -translate-x-1/2 scale-0 group-hover:scale-100 transition bg-black border border-white/10 text-xs px-2 py-1 rounded-lg whitespace-nowrap">
+                    Verified Team
+                  </div>
+                </div>
+              )}
+            </div>
 
             {badges.length > 0 && (
               <div className="mt-3 flex flex-wrap justify-center gap-2">
