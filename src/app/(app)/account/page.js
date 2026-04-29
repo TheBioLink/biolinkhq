@@ -6,6 +6,7 @@ import PageButtonsForm from "@/components/forms/PageButtonsForm";
 import PageLinksForm from "@/components/forms/PageLinksForm";
 import TeamProfileForm from "@/components/forms/TeamProfileForm";
 import TeamAdminPanel from "@/components/admin/TeamAdminPanel";
+import TeamInvitesPanel from "@/components/teams/TeamInvitesPanel";
 import BanPanel from "@/components/admin/BanPanel";
 
 import { getServerSession } from "next-auth";
@@ -47,6 +48,8 @@ export default async function AccountPage() {
 
   return (
     <DashboardShell title="My Page" subtitle="Update your profile, buttons and links." activeTab="page">
+      <TeamInvitesPanel />
+
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-extrabold">Profile</h2>
