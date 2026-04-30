@@ -16,6 +16,8 @@ export async function getBadgeModels() {
         createdBy: { type: String, default: "" },
         badgeKey: { type: String, default: "", index: true },
         tagline: { type: String, default: "" },
+        targetUri: { type: String, default: "" },
+        targetUrl: { type: String, default: "" },
         claimLimit: { type: Number, default: 0 },
         claimEndsAt: { type: Date, default: null },
         isActive: { type: Boolean, default: true },
