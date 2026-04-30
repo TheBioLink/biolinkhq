@@ -5,7 +5,6 @@ import { getMessageModel } from "@/models/Message";
 import { getMessageReportModel } from "@/models/MessageReport";
 import { Page } from "@/models/Page";
 import { User } from "@/models/User";
-import { Ban } from "@/models/Ban";
 import mongoose from "mongoose";
 
 export const runtime = "nodejs";
@@ -19,23 +18,15 @@ async function connectMainDb() {
   }
 }
 
-async function getAdminContext(email) {
-  await connectMainDb();
-  const myPage = await Page.findOne({ owner: email }).lean();
-  return { myPage, isAdmin: myPage?.uri === "itsnicbtw" };
-}
-
 export async function PUT(req) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  if (!session?.user?.email)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   await connectMainDb();
 
   const { query } = await req.json();
   const q = searchSafe(query);
-
   if (!q) return NextResponse.json({ users: [] });
 
   const users = await Page.find({
@@ -49,57 +40,27 @@ export async function PUT(req) {
     .lean();
 
   return NextResponse.json({
-    users: users.map((user) => ({
-      username: user.uri,
-      displayName: user.displayName || user.uri,
-      profileImage: user.profileImage || "",
-      isTeam: Boolean(user.isTeam),
+    users: users.map((u) => ({
+      uri: u.uri,
+      username: u.uri,
+      displayName: u.displayName || u.uri,
+      profileImage: u.profileImage || "",
+      isTeam: !!u.isTeam,
     })),
   });
 }
 
 export async function GET(req) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  if (!session?.user?.email)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const Message = await getMessageModel();
-  const MessageReport = await getMessageReportModel();
 
   const { searchParams } = new URL(req.url);
   const username = searchParams.get("user");
 
   const meEmail = norm(session.user.email);
-  const { isAdmin } = await getAdminContext(meEmail);
-
-  if (searchParams.get("admin") === "1") {
-    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-    const reports = await MessageReport.find({ status: "open" })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
-    return NextResponse.json({ reports });
-  }
-
-  if (searchParams.get("blocked") === "1") {
-    await connectMainDb();
-    const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
-    const blockedEmails = (meUser?.blockedUsers || []).map(norm);
-
-    const pages = await Page.find({ owner: { $in: blockedEmails } })
-      .select("uri owner displayName profileImage")
-      .lean();
-
-    return NextResponse.json({
-      blocked: pages.map((p) => ({
-        username: p.uri,
-        displayName: p.displayName || p.uri,
-        profileImage: p.profileImage || "",
-      })),
-    });
-  }
 
   if (!username) {
     const recent = await Message.find({
@@ -109,57 +70,51 @@ export async function GET(req) {
       .limit(100)
       .lean();
 
-    const latestByEmail = new Map();
+    const latest = new Map();
 
-    for (const msg of recent) {
-      const otherEmail = norm(msg.fromEmail === meEmail ? msg.toEmail : msg.fromEmail);
-      if (!latestByEmail.has(otherEmail)) {
-        latestByEmail.set(otherEmail, msg);
-      }
+    for (const m of recent) {
+      const other =
+        m.fromEmail === meEmail ? m.toEmail : m.fromEmail;
+      if (!latest.has(other)) latest.set(other, m);
     }
 
     await connectMainDb();
 
-    const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
-    const blockedSet = new Set((meUser?.blockedUsers || []).map(norm));
-
-    const otherEmails = Array.from(latestByEmail.keys()).filter((email) => !blockedSet.has(email));
-
-    const pages = await Page.find({ owner: { $in: otherEmails } })
+    const pages = await Page.find({
+      owner: { $in: Array.from(latest.keys()) },
+    })
       .select("uri owner displayName profileImage")
       .lean();
 
-    const pageByOwner = new Map(pages.map((p) => [norm(p.owner), p]));
+    const map = new Map(pages.map((p) => [norm(p.owner), p]));
 
-    const conversations = otherEmails.map((email) => {
-      const page = pageByOwner.get(email);
-      const msg = latestByEmail.get(email);
-      if (!page) return null;
+    const conversations = Array.from(latest.keys())
+      .map((email) => {
+        const page = map.get(email);
+        if (!page) return null;
 
-      return {
-        username: page.uri,
-        displayName: page.displayName || page.uri,
-        profileImage: page.profileImage || "",
-        lastMessage: msg.body,
-        isMine: msg.fromEmail === meEmail,
-        updatedAt: msg.createdAt,
-      };
-    }).filter(Boolean);
+        const msg = latest.get(email);
+
+        return {
+          uri: page.uri,
+          username: page.uri,
+          displayName: page.displayName || page.uri,
+          profileImage: page.profileImage || "",
+          lastMessage: msg.body,
+          updatedAt: msg.createdAt,
+        };
+      })
+      .filter(Boolean);
 
     return NextResponse.json({ conversations });
   }
 
   await connectMainDb();
 
-  const targetPage = await Page.findOne({ uri: norm(username) }).lean();
-  if (!targetPage) return NextResponse.json({ messages: [] });
+  const target = await Page.findOne({ uri: norm(username) }).lean();
+  if (!target) return NextResponse.json({ messages: [] });
 
-  const otherEmail = norm(targetPage.owner);
-
-  const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
-  if ((meUser?.blockedUsers || []).map(norm).includes(otherEmail)) {
-    return NextResponse.json({ messages: [], blocked: true });
-  }
+  const otherEmail = norm(target.owner);
 
   const messages = await Message.find({
     $or: [
@@ -173,52 +128,43 @@ export async function GET(req) {
 
   return NextResponse.json({
     messages: messages.map((m) => ({
-      id: m._id,
+      id: String(m._id),
       body: m.body,
       isMine: m.fromEmail === meEmail,
       createdAt: m.createdAt,
     })),
-    blocked: false,
     target: {
-      username: targetPage.uri,
-      displayName: targetPage.displayName || targetPage.uri,
-      profileImage: targetPage.profileImage || "",
+      uri: target.uri,
+      username: target.uri,
+      displayName: target.displayName || target.uri,
+      profileImage: target.profileImage || "",
     },
   });
 }
 
 export async function POST(req) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  if (!session?.user?.email)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const Message = await getMessageModel();
-  const { username, body } = await req.json();
 
-  if (!username || !body?.trim()) {
+  const { username, body } = await req.json();
+  const clean = String(body || "").trim().slice(0, 1000);
+
+  if (!username || !clean)
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-  }
 
   await connectMainDb();
 
-  const targetPage = await Page.findOne({ uri: norm(username) }).lean();
-  if (!targetPage) {
+  const target = await Page.findOne({ uri: norm(username) }).lean();
+  if (!target)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  const meEmail = norm(session.user.email);
-  const otherEmail = norm(targetPage.owner);
-
-  const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
-  if ((meUser?.blockedUsers || []).map(norm).includes(otherEmail)) {
-    return NextResponse.json({ error: "User blocked" }, { status: 403 });
-  }
 
   await Message.create({
-    fromEmail: meEmail,
-    toEmail: otherEmail,
-    body: String(body).trim().slice(0, 1000),
+    fromEmail: norm(session.user.email),
+    toEmail: norm(target.owner),
+    body: clean,
   });
 
   return NextResponse.json({ ok: true });
