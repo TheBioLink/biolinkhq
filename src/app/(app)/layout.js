@@ -1,16 +1,23 @@
-import "../globals.css";
-import { Lato } from "next/font/google";
-
-const lato = Lato({ subsets: ["latin"], weight: ["400", "700"] });
+import "./globals.css";
+import Script from "next/script";
 
 export const metadata = {
-  title: "Dashboard | Biolinkhq",
+  title: "BioLinkHQ",
+  description: "Your all-in-one bio link platform",
 };
 
-export default function AppLayout({ children }) {
+export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${lato.className} bg-[#0b0f14] text-gray-100`}>
+    <html lang="en">
+      <head>
+        <Script
+          async
+          strategy="afterInteractive"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8336311096274398"
+          crossOrigin="anonymous"
+        />
+      </head>
+      <body>
         {children}
       </body>
     </html>
