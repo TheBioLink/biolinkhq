@@ -89,7 +89,9 @@ export async function POST(req) {
       teamLogo: ctx.page.profileImage || "",
       targetEmail: norm(targetPage.owner),
       targetUri: targetPage.uri,
+      targetProfileUrl: `/${targetPage.uri}`,
       role,
+      badgeTagline: `Verified player for ${ctx.page.displayName || ctx.page.uri}`,
     });
 
     return NextResponse.json({ ok: true });
@@ -135,19 +137,42 @@ export async function PATCH(req) {
       (member) => norm(member.ownerEmail) === ctx.email || norm(member.profileUri) === norm(ctx.page?.uri)
     );
 
-    let badgeId = "";
+    let badgeId = invite.badgeId || "";
 
     if (!alreadyMember) {
       const { BadgeModel, UserBadgeModel } = await getBadgeModels();
-      const badge = await BadgeModel.create({
-        name: `${invite.teamName || invite.teamUri} Player`,
-        icon: invite.teamLogo || "",
-        type: "private",
-        createdBy: invite.teamOwnerEmail,
-        claimLimit: 1,
-        isActive: true,
-        isCustom: false,
-      });
+      const badgeKey = `team_player_${norm(invite.teamOwnerEmail)}`;
+
+      let badge = await BadgeModel.findOne({ badgeKey });
+
+      if (!badge) {
+        badge = await BadgeModel.findOne({
+          createdBy: invite.teamOwnerEmail,
+          name: `${invite.teamName || invite.teamUri} Player`,
+        });
+      }
+
+      if (!badge) {
+        badge = await BadgeModel.create({
+          name: `${invite.teamName || invite.teamUri} Player`,
+          icon: invite.teamLogo || "",
+          type: "private",
+          createdBy: invite.teamOwnerEmail,
+          badgeKey,
+          tagline: invite.badgeTagline || `Verified player for ${invite.teamName || invite.teamUri}`,
+          targetUri: invite.teamUri,
+          targetUrl: `/${invite.teamUri}`,
+          isActive: true,
+          isCustom: false,
+        });
+      } else {
+        badge.badgeKey = badge.badgeKey || badgeKey;
+        badge.tagline = badge.tagline || invite.badgeTagline || `Verified player for ${invite.teamName || invite.teamUri}`;
+        badge.targetUri = badge.targetUri || invite.teamUri;
+        badge.targetUrl = badge.targetUrl || `/${invite.teamUri}`;
+        if (!badge.icon && invite.teamLogo) badge.icon = invite.teamLogo;
+        await badge.save();
+      }
 
       badgeId = String(badge._id);
 
@@ -166,8 +191,10 @@ export async function PATCH(req) {
               role: invite.role || "Player",
               ownerEmail: ctx.email,
               profileUri: ctx.page?.uri || invite.targetUri,
+              profileUrl: `/${ctx.page?.uri || invite.targetUri}`,
               verified: true,
               badgeId,
+              badgeTagline: invite.badgeTagline || `Verified player for ${invite.teamName || invite.teamUri}`,
               acceptedAt: new Date(),
             },
           },
