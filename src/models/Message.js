@@ -1,44 +1,29 @@
 import mongoose from "mongoose";
+import { messageDb } from "@/libs/messageDb";
 
-const { model, models, Schema } = mongoose;
+let MessageModel;
 
-const MessageSchema = new Schema(
-  {
-    fromEmail: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true,
-      index: true,
-    },
-    toEmail: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true,
-      index: true,
-    },
-    body: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 500,
-    },
-    readAt: {
-      type: Date,
-      default: null,
-    },
-    expiresAt: {
-      type: Date,
-      required: true,
-      default: () => new Date(Date.now() + 60 * 60 * 1000),
-      expires: 0,
-    },
-  },
-  { timestamps: true }
-);
+export async function getMessageModel() {
+  const conn = await messageDb();
 
-MessageSchema.index({ fromEmail: 1, toEmail: 1, createdAt: -1 });
-MessageSchema.index({ toEmail: 1, readAt: 1, createdAt: -1 });
+  if (!MessageModel) {
+    const MessageSchema = new mongoose.Schema(
+      {
+        fromEmail: { type: String, required: true, lowercase: true, trim: true, index: true },
+        toEmail: { type: String, required: true, lowercase: true, trim: true, index: true },
+        body: { type: String, required: true, trim: true, maxlength: 1000 },
+        readAt: { type: Date, default: null },
+        editedAt: { type: Date, default: null },
+        deleted: { type: Boolean, default: false },
+      },
+      { timestamps: true }
+    );
 
-export const Message = models.Message || model("Message", MessageSchema);
+    MessageSchema.index({ fromEmail: 1, toEmail: 1, createdAt: -1 });
+    MessageSchema.index({ toEmail: 1, readAt: 1, createdAt: -1 });
+
+    MessageModel = conn.models.Message || conn.model("Message", MessageSchema);
+  }
+
+  return MessageModel;
+}
