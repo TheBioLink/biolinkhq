@@ -10,7 +10,8 @@ import mongoose from "mongoose";
 
 export const runtime = "nodejs";
 
-const norm = (s) => (s || "").toLowerCase().trim();
+const norm = (s) => (s || "").toString().toLowerCase().trim();
+const searchSafe = (s) => norm(s).replace(/[^a-z0-9_\- .]/g, "").slice(0, 40);
 
 async function connectMainDb() {
   if (mongoose.connection.readyState !== 1) {
@@ -22,6 +23,39 @@ async function getAdminContext(email) {
   await connectMainDb();
   const myPage = await Page.findOne({ owner: email }).lean();
   return { myPage, isAdmin: myPage?.uri === "itsnicbtw" };
+}
+
+export async function PUT(req) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  await connectMainDb();
+
+  const { query } = await req.json();
+  const q = searchSafe(query);
+
+  if (!q) return NextResponse.json({ users: [] });
+
+  const users = await Page.find({
+    $or: [
+      { uri: { $regex: q, $options: "i" } },
+      { displayName: { $regex: q, $options: "i" } },
+    ],
+  })
+    .select("uri displayName profileImage isTeam")
+    .limit(10)
+    .lean();
+
+  return NextResponse.json({
+    users: users.map((user) => ({
+      username: user.uri,
+      displayName: user.displayName || user.uri,
+      profileImage: user.profileImage || "",
+      isTeam: Boolean(user.isTeam),
+    })),
+  });
 }
 
 export async function GET(req) {
@@ -47,6 +81,24 @@ export async function GET(req) {
       .limit(50)
       .lean();
     return NextResponse.json({ reports });
+  }
+
+  if (searchParams.get("blocked") === "1") {
+    await connectMainDb();
+    const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
+    const blockedEmails = (meUser?.blockedUsers || []).map(norm);
+
+    const pages = await Page.find({ owner: { $in: blockedEmails } })
+      .select("uri owner displayName profileImage")
+      .lean();
+
+    return NextResponse.json({
+      blocked: pages.map((p) => ({
+        username: p.uri,
+        displayName: p.displayName || p.uri,
+        profileImage: p.profileImage || "",
+      })),
+    });
   }
 
   if (!username) {
@@ -99,10 +151,15 @@ export async function GET(req) {
 
   await connectMainDb();
 
-  const targetPage = await Page.findOne({ uri: username }).lean();
+  const targetPage = await Page.findOne({ uri: norm(username) }).lean();
   if (!targetPage) return NextResponse.json({ messages: [] });
 
   const otherEmail = norm(targetPage.owner);
+
+  const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
+  if ((meUser?.blockedUsers || []).map(norm).includes(otherEmail)) {
+    return NextResponse.json({ messages: [], blocked: true });
+  }
 
   const messages = await Message.find({
     $or: [
@@ -121,6 +178,12 @@ export async function GET(req) {
       isMine: m.fromEmail === meEmail,
       createdAt: m.createdAt,
     })),
+    blocked: false,
+    target: {
+      username: targetPage.uri,
+      displayName: targetPage.displayName || targetPage.uri,
+      profileImage: targetPage.profileImage || "",
+    },
   });
 }
 
@@ -131,12 +194,15 @@ export async function POST(req) {
   }
 
   const Message = await getMessageModel();
-
   const { username, body } = await req.json();
+
+  if (!username || !body?.trim()) {
+    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  }
 
   await connectMainDb();
 
-  const targetPage = await Page.findOne({ uri: username }).lean();
+  const targetPage = await Page.findOne({ uri: norm(username) }).lean();
   if (!targetPage) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -144,10 +210,15 @@ export async function POST(req) {
   const meEmail = norm(session.user.email);
   const otherEmail = norm(targetPage.owner);
 
+  const meUser = await User.findOne({ email: meEmail }).select("blockedUsers").lean();
+  if ((meUser?.blockedUsers || []).map(norm).includes(otherEmail)) {
+    return NextResponse.json({ error: "User blocked" }, { status: 403 });
+  }
+
   await Message.create({
     fromEmail: meEmail,
     toEmail: otherEmail,
-    body: body.trim(),
+    body: String(body).trim().slice(0, 1000),
   });
 
   return NextResponse.json({ ok: true });
