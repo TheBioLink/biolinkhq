@@ -14,6 +14,8 @@ export async function getBadgeModels() {
         icon: { type: String, default: "" },
         type: { type: String, enum: ["public", "private"], default: "public" },
         createdBy: { type: String, default: "" },
+        badgeKey: { type: String, default: "", index: true },
+        tagline: { type: String, default: "" },
         claimLimit: { type: Number, default: 0 },
         claimEndsAt: { type: Date, default: null },
         isActive: { type: Boolean, default: true },
@@ -21,6 +23,8 @@ export async function getBadgeModels() {
       },
       { timestamps: true }
     );
+
+    BadgeSchema.index({ badgeKey: 1 }, { unique: true, sparse: true });
 
     const UserBadgeSchema = new mongoose.Schema(
       {
