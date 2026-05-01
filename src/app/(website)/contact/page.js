@@ -1,3 +1,5 @@
+"use client";
+
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,12 +10,6 @@ import {
   FaLinkedinIn,
   FaBriefcase,
 } from "react-icons/fa";
-
-export const metadata = {
-  title: "Biolinkhq by itsnicbtw | Contact",
-  description:
-    "Share your links, social profiles, contact info and more on one page with Biolinkhq",
-};
 
 export default function Contact() {
   return (
