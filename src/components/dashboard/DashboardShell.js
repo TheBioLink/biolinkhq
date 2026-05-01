@@ -33,6 +33,7 @@ export default async function DashboardShell({
 }) {
   const session = await getServerSession(authOptions);
   const email = (session?.user?.email || "").toLowerCase().trim();
+
   let page = null;
   if (email) {
     if (mongoose.connection.readyState !== 1) {
@@ -66,6 +67,7 @@ export default async function DashboardShell({
         {/* Desktop Sidebar */}
         <aside className="hidden w-64 shrink-0 lg:block">
           <div className="sticky top-6 rounded-3xl border border-white/10 bg-white/5 p-5">
+            
             {/* User info */}
             {session?.user && (
               <div className="mb-5 flex items-center gap-3 px-2">
@@ -81,7 +83,9 @@ export default async function DashboardShell({
                     {session.user.name || page?.uri || ""}
                   </p>
                   {page?.uri && (
-                    <p className="truncate text-xs text-white/40">{"@" + page.uri}</p>
+                    <p className="truncate text-xs text-white/40">
+                      {"@" + page.uri}
+                    </p>
                   )}
                 </div>
               </div>
@@ -101,8 +105,9 @@ export default async function DashboardShell({
 
               <div className="my-2 border-t border-white/10" />
 
+              {/* ✅ FIXED SECTION */}
               {page?.uri && (
-                
+                <a
                   href={profileHref}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -123,7 +128,9 @@ export default async function DashboardShell({
 
         {/* Main content */}
         <main className="min-w-0 flex-1 rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5 md:p-8">
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{title}</h1>
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+            {title}
+          </h1>
           {subtitle && (
             <p className="mt-2 text-sm text-white/60">{subtitle}</p>
           )}
