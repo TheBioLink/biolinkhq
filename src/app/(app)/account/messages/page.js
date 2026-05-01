@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
-import MessagesClient from "./MessagesClient";
+import MessagesClient from "@/components/messages/MessagesClient";
 
 export default async function MessagesPage() {
   const session = await getServerSession(authOptions);
