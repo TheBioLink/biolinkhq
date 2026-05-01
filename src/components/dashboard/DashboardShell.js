@@ -57,6 +57,8 @@ export default async function DashboardShell({
       : []),
   ];
 
+  const profileHref = page?.uri ? "/" + page.uri : "/account";
+
   return (
     <div className="min-h-screen bg-[#0a0f1a] pb-24 text-white lg:pb-0">
       <div className="mx-auto flex max-w-7xl gap-6 px-3 py-4 sm:px-4 sm:py-6 lg:px-8">
@@ -79,7 +81,7 @@ export default async function DashboardShell({
                     {session.user.name || page?.uri || ""}
                   </p>
                   {page?.uri && (
-                    <p className="truncate text-xs text-white/40">@{page.uri}</p>
+                    <p className="truncate text-xs text-white/40">{"@" + page.uri}</p>
                   )}
                 </div>
               </div>
@@ -101,7 +103,7 @@ export default async function DashboardShell({
 
               {page?.uri && (
                 
-                  href={`/${page.uri}`}
+                  href={profileHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={navClass(false)}
