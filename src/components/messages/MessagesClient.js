@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -11,69 +10,66 @@ export default function MessagesClient({ username }) {
   // LOAD CHAT IF USER PAGE
   useEffect(() => {
     if (!username) return;
-
     async function loadChat() {
       const res = await fetch(`/api/messages?user=${username}`);
       const data = await res.json();
       setMessages(data.messages || []);
     }
-
     loadChat();
   }, [username]);
 
-  // SEARCH USERS (INBOX MODE)
+  // SEARCH USERS
   async function searchUsers(value) {
     setQuery(value);
-
     if (!value.trim()) {
       setUsers([]);
       return;
     }
-
     const res = await fetch("/api/messages", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: value }),
     });
-
     const data = await res.json();
     setUsers(data.users || []);
   }
 
-  // 👉 CHAT VIEW (when /messages/[user])
+  // CHAT VIEW
   if (username) {
     return (
-      <div className="space-y-3">
-        {messages.length === 0 ? (
-          <p className="text-white/50">No messages yet</p>
-        ) : (
-          messages.map((m, i) => (
-            <div
-              key={i}
-              className={`p-3 rounded-xl ${
-                m.isMine ? "bg-blue-500/20 ml-auto" : "bg-white/5"
-              }`}
-            >
-              {m.body}
-            </div>
-          ))
-        )}
+      <div className="space-y-4">
+        <Link href="/messages" className="text-sm text-white/50 hover:text-white">
+          ← Back to inbox
+        </Link>
+        <div className="space-y-3">
+          {messages.length === 0 ? (
+            <p className="text-white/50">No messages yet</p>
+          ) : (
+            messages.map((m, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-xl max-w-xs ${
+                  m.isMine ? "bg-blue-500/20 ml-auto text-right" : "bg-white/5"
+                }`}
+              >
+                {m.body}
+              </div>
+            ))
+          )}
+        </div>
       </div>
     );
   }
 
-  // 👉 INBOX VIEW (search users)
+  // INBOX VIEW
   return (
     <div className="space-y-4">
-
       <input
         value={query}
         onChange={(e) => searchUsers(e.target.value)}
         placeholder="Search users..."
         className="w-full rounded-xl bg-white/5 p-3 text-white outline-none"
       />
-
-      {/* USER RESULTS */}
       {users.length > 0 && (
         <div className="space-y-2">
           {users.map((u) => (
@@ -88,7 +84,6 @@ export default function MessagesClient({ username }) {
           ))}
         </div>
       )}
-
     </div>
   );
 }
