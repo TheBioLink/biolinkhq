@@ -1,3 +1,5 @@
+"use client";
+
 import { getArticleModel } from "@/models/Article";
 
 export const dynamic = "force-dynamic";
