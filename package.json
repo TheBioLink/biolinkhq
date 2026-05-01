@@ -37,7 +37,8 @@
     "object-copy": "^1.0.0",
     "plain-object-clone": "^2.0.0",
     "stripe": "^16.10.0",
-    "uuid": "^10.0.0"          
+    "uuid": "^10.0.0",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "autoprefixer": "^10.0.1",
