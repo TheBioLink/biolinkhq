@@ -10,7 +10,7 @@ const plans = [
     name: "Free",
     monthlyPrice: "£0",
     annualPrice: "£0",
-    subtitle: "Perfect to get started",
+    subtitle: "Get started with the essentials",
     accent: "border-white/10 bg-[#111827]",
     button:
       "bg-white/10 text-white hover:bg-white/15 border border-white/10",
@@ -28,7 +28,7 @@ const plans = [
     name: "Basic",
     monthlyPrice: "£5",
     annualPrice: "£50",
-    subtitle: "More control and customization",
+    subtitle: "More control, better customization",
     accent: "border-blue-500/30 bg-[#111827]",
     button: "bg-blue-600 text-white hover:bg-blue-500",
     cta: "Upgrade",
@@ -44,7 +44,7 @@ const plans = [
     name: "Premium",
     monthlyPrice: "£20",
     annualPrice: "£200",
-    subtitle: "Advanced tools for growth",
+    subtitle: "Built for creators who want to grow",
     accent:
       "border-blue-500 bg-gradient-to-b from-blue-500/10 to-[#111827] shadow-[0_0_0_1px_rgba(59,130,246,0.2),0_20px_60px_rgba(37,99,235,0.15)]",
     button: "bg-blue-600 text-white hover:bg-blue-500",
@@ -54,9 +54,9 @@ const plans = [
     features: [
       "Everything in Basic",
       "Advanced analytics",
-      "Priority page loading",
+      "Faster page loading",
       "Premium themes",
-      "7-day free trial on monthly",
+      "7-day free trial (monthly)",
     ],
   },
   {
@@ -64,16 +64,22 @@ const plans = [
     name: "Exclusive",
     monthlyPrice: "£100",
     annualPrice: "£1000",
-    subtitle: "Top-tier access and support",
+    subtitle: "Direct influence. Maximum power.",
     accent:
       "border-amber-500/40 bg-gradient-to-b from-amber-500/10 to-[#111827]",
     button: "bg-amber-500 text-black hover:bg-amber-400",
-    cta: "Upgrade",
+    featured: true,
+    badge: "Highest Tier",
+    cta: "Go Exclusive",
     features: [
       "Everything in Premium",
       "Custom domain support",
       "Advanced integrations",
       "Priority feature access",
+      "🚀 Your feature requests are prioritized",
+      "💡 99% of requested features get added",
+      "⚡ Direct influence on product roadmap",
+      "🧠 Early access to new features",
     ],
   },
 ];
@@ -191,7 +197,10 @@ export default function PricingClient() {
           {plans.map((plan) => {
             const isFree = plan.key === "free";
             const currentPrice =
-              billing === "annual" ? plan.annualPrice : plan.monthlyPrice;
+              billing === "annual"
+                ? plan.annualPrice
+                : plan.monthlyPrice;
+
             const isLoading = loading === `${plan.key}:${billing}`;
 
             return (
@@ -206,8 +215,12 @@ export default function PricingClient() {
                 )}
 
                 <div>
-                  <h2 className="text-2xl font-black text-white">{plan.name}</h2>
-                  <p className="mt-2 text-sm text-white/60">{plan.subtitle}</p>
+                  <h2 className="text-2xl font-black text-white">
+                    {plan.name}
+                  </h2>
+                  <p className="mt-2 text-sm text-white/60">
+                    {plan.subtitle}
+                  </p>
 
                   <div className="mt-5 flex items-end gap-1">
                     <span className="text-5xl font-black leading-none text-white">
@@ -218,18 +231,22 @@ export default function PricingClient() {
                     </span>
                   </div>
 
-                  {plan.key === "premium" && billing === "monthly" && (
-                    <div className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
-                      7-day free trial
-                    </div>
-                  )}
+                  {plan.key === "premium" &&
+                    billing === "monthly" && (
+                      <div className="mt-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                        7-day free trial
+                      </div>
+                    )}
                 </div>
 
                 <div className="mt-8 h-px bg-white/10" />
 
                 <ul className="mt-8 space-y-4 text-sm text-white/80">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-3">
+                    <li
+                      key={feature}
+                      className="flex items-start gap-3"
+                    >
                       <CheckIcon />
                       <span>{feature}</span>
                     </li>
@@ -247,13 +264,23 @@ export default function PricingClient() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => startCheckout(plan.key, billing, setLoading)}
+                      onClick={() =>
+                        startCheckout(
+                          plan.key,
+                          billing,
+                          setLoading
+                        )
+                      }
                       disabled={loading !== null}
                       className={`inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${plan.button}`}
                     >
                       {isLoading
                         ? "Loading..."
-                        : `${plan.cta} ${billing === "annual" ? "Yearly" : "Monthly"}`}
+                        : `${plan.cta} ${
+                            billing === "annual"
+                              ? "Yearly"
+                              : "Monthly"
+                          }`}
                     </button>
                   )}
                 </div>
