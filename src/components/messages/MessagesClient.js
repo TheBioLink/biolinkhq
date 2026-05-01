@@ -1,171 +1,97 @@
-import { NextResponse } from "next/server";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getMessageModel } from "@/models/Message";
-import { getMessageReportModel } from "@/models/MessageReport";
-import { Page } from "@/models/Page";
-import { User } from "@/models/User";
 import mongoose from "mongoose";
+import { Page } from "@/models/Page";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faFileLines,
+  faChartLine,
+  faArrowRightFromBracket,
+  faCommentDots,
+  faFlag,
+} from "@fortawesome/free-solid-svg-icons";
 
-export const runtime = "nodejs";
-
-const norm = (s) => (s || "").toString().toLowerCase().trim();
-const searchSafe = (s) => norm(s).replace(/[^a-z0-9_\- .]/g, "").slice(0, 40);
-
-async function connectMainDb() {
-  if (mongoose.connection.readyState !== 1) {
-    await mongoose.connect(process.env.MONGO_URI);
-  }
+function navClass(active) {
+  return active
+    ? "flex items-center gap-2 rounded-2xl px-4 py-3 text-blue-300 bg-blue-500/15 font-bold"
+    : "flex items-center gap-2 rounded-2xl px-4 py-3 text-white/65 hover:bg-white/5 hover:text-white transition";
 }
 
-export async function PUT(req) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  await connectMainDb();
-
-  const { query } = await req.json();
-  const q = searchSafe(query);
-  if (!q) return NextResponse.json({ users: [] });
-
-  const users = await Page.find({
-    $or: [
-      { uri: { $regex: q, $options: "i" } },
-      { displayName: { $regex: q, $options: "i" } },
-    ],
-  })
-    .select("uri displayName profileImage isTeam")
-    .limit(10)
-    .lean();
-
-  return NextResponse.json({
-    users: users.map((u) => ({
-      uri: u.uri,
-      username: u.uri,
-      displayName: u.displayName || u.uri,
-      profileImage: u.profileImage || "",
-      isTeam: !!u.isTeam,
-    })),
-  });
+function mobileNavClass(active) {
+  return active
+    ? "flex min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl bg-blue-500/15 px-3 py-2 text-blue-300"
+    : "flex min-w-[92px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-white/55 hover:bg-white/5 hover:text-white";
 }
 
-export async function GET(req) {
+export default async function DashboardShell({
+  title,
+  subtitle,
+  activeTab = "page",
+  children,
+}) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const Message = await getMessageModel();
+  const email = (session?.user?.email || "").toLowerCase().trim();
 
-  const { searchParams } = new URL(req.url);
-  const username = searchParams.get("user");
+  let page = null;
 
-  const meEmail = norm(session.user.email);
-
-  if (!username) {
-    const recent = await Message.find({
-      $or: [{ fromEmail: meEmail }, { toEmail: meEmail }],
-    })
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean();
-
-    const latest = new Map();
-
-    for (const m of recent) {
-      const other =
-        m.fromEmail === meEmail ? m.toEmail : m.fromEmail;
-      if (!latest.has(other)) latest.set(other, m);
+  if (email) {
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGO_URI);
     }
-
-    await connectMainDb();
-
-    const pages = await Page.find({
-      owner: { $in: Array.from(latest.keys()) },
-    })
-      .select("uri owner displayName profileImage")
-      .lean();
-
-    const map = new Map(pages.map((p) => [norm(p.owner), p]));
-
-    const conversations = Array.from(latest.keys())
-      .map((email) => {
-        const page = map.get(email);
-        if (!page) return null;
-
-        const msg = latest.get(email);
-
-        return {
-          uri: page.uri,
-          username: page.uri,
-          displayName: page.displayName || page.uri,
-          profileImage: page.profileImage || "",
-          lastMessage: msg.body,
-          updatedAt: msg.createdAt,
-        };
-      })
-      .filter(Boolean);
-
-    return NextResponse.json({ conversations });
+    page = await Page.findOne({ owner: email }).lean();
   }
 
-  await connectMainDb();
+  const isAdmin = page?.uri === "itsnicbtw";
 
-  const target = await Page.findOne({ uri: norm(username) }).lean();
-  if (!target) return NextResponse.json({ messages: [] });
+  const links = [
+    { href: "/account", label: "My Page", icon: faFileLines, tab: "page" },
+    { href: "/account/messages", label: "Messages", icon: faCommentDots, tab: "messages" },
+    { href: "/account/badges", label: "Badges", icon: faFlag, tab: "badges" },
+    ...(isAdmin
+      ? [{ href: "/account/articles", label: "Articles", icon: faFileLines, tab: "articles" }]
+      : []),
+    ...(isAdmin
+      ? [{ href: "/account/reports", label: "Reports", icon: faFlag, tab: "reports" }]
+      : []),
+    { href: "/account/analytics", label: "Analytics", icon: faChartLine, tab: "analytics" },
+  ];
 
-  const otherEmail = norm(target.owner);
+  return (
+    <div className="min-h-screen bg-[#0a0f1a] pb-24 text-white lg:pb-0">
+      <div className="mx-auto flex max-w-7xl gap-6 px-3 py-4 sm:px-4 sm:py-6 lg:px-8">
+        <aside className="hidden w-72 shrink-0 rounded-3xl border border-white/10 bg-white/5 p-5 lg:block">
+          <nav className="space-y-2">
+            {links.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={navClass(activeTab === item.tab)}
+              >
+                <FontAwesomeIcon icon={item.icon} className="h-4 w-4" />
+                <span>{item.label}</span>
+              </Link>
+            ))}
 
-  const messages = await Message.find({
-    $or: [
-      { fromEmail: meEmail, toEmail: otherEmail },
-      { fromEmail: otherEmail, toEmail: meEmail },
-    ],
-  })
-    .sort({ createdAt: 1 })
-    .limit(50)
-    .lean();
+            <Link href="/api/auth/signout" className={navClass(false)}>
+              <FontAwesomeIcon icon={faArrowRightFromBracket} className="h-4 w-4" />
+              <span>Logout</span>
+            </Link>
+          </nav>
+        </aside>
 
-  return NextResponse.json({
-    messages: messages.map((m) => ({
-      id: String(m._id),
-      body: m.body,
-      isMine: m.fromEmail === meEmail,
-      createdAt: m.createdAt,
-    })),
-    target: {
-      uri: target.uri,
-      username: target.uri,
-      displayName: target.displayName || target.uri,
-      profileImage: target.profileImage || "",
-    },
-  });
-}
+        <main className="min-w-0 flex-1 rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5 md:p-8">
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="mt-2 text-sm text-white/60">{subtitle}</p>
+          )}
 
-export async function POST(req) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const Message = await getMessageModel();
-
-  const { username, body } = await req.json();
-  const clean = String(body || "").trim().slice(0, 1000);
-
-  if (!username || !clean)
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-
-  await connectMainDb();
-
-  const target = await Page.findOne({ uri: norm(username) }).lean();
-  if (!target)
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  await Message.create({
-    fromEmail: norm(session.user.email),
-    toEmail: norm(target.owner),
-    body: clean,
-  });
-
-  return NextResponse.json({ ok: true });
+          <div className="mt-6 sm:mt-8">{children}</div>
+        </main>
+      </div>
+    </div>
+  );
 }
