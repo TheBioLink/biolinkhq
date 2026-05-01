@@ -12,7 +12,6 @@ export default function RootLayout({ children }) {
       <body>
         {children}
 
-        {/* Google AdSense (global load) */}
         <Script
           async
           strategy="afterInteractive"
