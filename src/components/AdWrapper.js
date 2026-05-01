@@ -1,6 +1,6 @@
-"use client";
+import dynamic from "next/dynamic";
 
-import AdBlock from "./AdBlock";
+const AdBlock = dynamic(() => import("./AdBlock"), { ssr: false });
 
 export default function AdWrapper({ slot }) {
   return (
