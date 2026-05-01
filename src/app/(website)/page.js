@@ -8,7 +8,7 @@ import Link from "next/link";
 import ImageGrid from "@/components/ImageGrid";
 import NewOwnershipPopup from "@/components/NewOwnershipPopup";
 import TrustpilotReviewCollector from "@/components/TrustpilotReviewCollector";
-import AdBlock from "@/components/AdBlock"; // 🔥 ADDED
+import AdWrapper from "@/components/AdWrapper";
 
 const imageUrls = [
   "/assets/polly.png",
@@ -28,7 +28,6 @@ export default async function Home() {
     <main>
       <NewOwnershipPopup />
 
-      {/* HERO */}
       <section className="flex flex-wrap items-center justify-center pt-32 md:flex-nowrap">
         <div className="mb-8 max-w-6xl md:mb-0 md:mr-8">
           <h1 className="text-6xl font-bold">Everything in one</h1>
@@ -42,14 +41,8 @@ export default async function Home() {
         <Carousel images={imageUrls} />
       </section>
 
-      {/* 🔥 AD (below hero, high visibility but not intrusive) */}
-      <div className="mt-10 flex justify-center">
-        <div className="w-full max-w-4xl">
-          <AdBlock slot="1234567890" />
-        </div>
-      </div>
+      <AdWrapper slot="1234567890" />
 
-      {/* SECTION 1 */}
       <div className="mt-20 max-w-5xl text-center mx-auto">
         <h1 className="mb-5 text-5xl font-bold">
           You never have to change the link in your bio again
@@ -66,14 +59,8 @@ export default async function Home() {
 
       <GridContainer />
 
-      {/* 🔥 AD (mid-page, best RPM zone) */}
-      <div className="mt-16 flex justify-center">
-        <div className="w-full max-w-4xl">
-          <AdBlock slot="1234567890" />
-        </div>
-      </div>
+      <AdWrapper slot="1234567890" />
 
-      {/* SECTION 2 */}
       <div className="mt-20 max-w-5xl text-center mx-auto">
         <h1 className="mb-5 text-5xl font-bold">
           Turn your Link In Bio into your own mini-website
@@ -85,7 +72,6 @@ export default async function Home() {
         </p>
       </div>
 
-      {/* CTA */}
       <div className="mt-8 flex justify-center">
         <Link
           href="/account"
@@ -95,15 +81,9 @@ export default async function Home() {
         </Link>
       </div>
 
-      {/* SOCIAL PROOF */}
       <TrustpilotReviewCollector />
 
-      {/* 🔥 AD (before image grid, high engagement area) */}
-      <div className="mt-16 flex justify-center">
-        <div className="w-full max-w-4xl">
-          <AdBlock slot="1234567890" />
-        </div>
-      </div>
+      <AdWrapper slot="1234567890" />
 
       <ImageGrid images={imageUrls} />
     </main>
