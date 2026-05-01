@@ -1,10 +1,11 @@
-// src/app/page.js
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import HeroForm from "@/components/forms/HeroForm";
 import { getServerSession } from "next-auth";
+import Link from "next/link";
+
+// Components
+import HeroForm from "@/components/forms/HeroForm";
 import Carousel from "@/components/Carousel";
 import GridContainer from "@/components/GridContainer";
-import Link from "next/link";
 import ImageGrid from "@/components/ImageGrid";
 import NewOwnershipPopup from "@/components/NewOwnershipPopup";
 import TrustpilotReviewCollector from "@/components/TrustpilotReviewCollector";
@@ -31,10 +32,12 @@ export default async function Home() {
       <section className="flex flex-wrap items-center justify-center pt-32 md:flex-nowrap">
         <div className="mb-8 max-w-6xl md:mb-0 md:mr-8">
           <h1 className="text-6xl font-bold">Everything in one</h1>
+
           <h2 className="mb-4 mt-6 text-xl text-gray-500">
             Share your links, social media profiles, contact info and more on
             one page
           </h2>
+
           <HeroForm user={session?.user} />
         </div>
 
@@ -47,13 +50,10 @@ export default async function Home() {
         <h1 className="mb-5 text-5xl font-bold">
           You never have to change the link in your bio again
         </h1>
+
         <p>
           Back in 2016 the original link-in-bio platforms solved social media’s
-          most annoying problem: only having one link in your bio. Biolinkhq
-          continues that tradition and has since become so much more — allowing
-          businesses or creators to get more out of their social media, grow
-          their following, easily take payments and take back control of how
-          your content is discovered.
+          most annoying problem...
         </p>
       </div>
 
@@ -65,11 +65,6 @@ export default async function Home() {
         <h1 className="mb-5 text-5xl font-bold">
           Turn your Link In Bio into your own mini-website
         </h1>
-        <p>
-          It takes seconds to turn your bio into a mini website, allowing your
-          followers to engage with your content, discover you on other platforms
-          or purchase and support you with just one simple link.
-        </p>
       </div>
 
       <div className="mt-8 flex justify-center">
