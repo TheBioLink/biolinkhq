@@ -111,6 +111,16 @@ function ProfileBadge({ badge }) {
 }
 
 export default async function PublicProfilePage({ params }) {
+  // Block reserved app paths from being treated as profile URIs
+  const reserved = [
+    "account", "login", "pricing", "about", "contact",
+    "privacy", "news", "application", "api", "analytics",
+    "messages", "reports", "subscription", "badges", "articles",
+  ];
+  if (reserved.includes(params.uri.toLowerCase())) {
+    notFound();
+  }
+
   await connectToDatabase();
 
   const rawPage = await Page.findOne({ uri: params.uri }).lean();
