@@ -1,3 +1,4 @@
+// src/app/api/stripe/checkout/route.js
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -9,6 +10,7 @@ import {
   normalizeEmail,
 } from "@/libs/stripe-subscriptions";
 import { User } from "@/models/User";
+import { PromoCode } from "@/models/PromoCode";
 
 const PLANS = {
   basic: {
@@ -42,6 +44,69 @@ function getBaseUrl(req) {
   );
 }
 
+const norm = (s) => (s || "").toString().toLowerCase().trim();
+
+/**
+ * Validate a promo code and return the Stripe coupon ID to apply.
+ * Creates a one-off Stripe coupon each time so the discount is enforced
+ * server-side and shows up correctly in the Stripe dashboard / receipt.
+ */
+async function resolveStripeCoupon(promoCode, planKey, userEmail) {
+  if (!promoCode) return null;
+
+  try {
+    const promo = await PromoCode.findOne({
+      code: promoCode.toUpperCase().trim(),
+      active: true,
+    });
+
+    if (!promo) return null;
+
+    const now = new Date();
+    if (promo.expiresAt && now > new Date(promo.expiresAt)) return null;
+    if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) return null;
+
+    // Check per-user limit
+    const userUsages = promo.usages.filter(
+      (u) => norm(u.userEmail) === norm(userEmail)
+    );
+    if (promo.maxUsesPerUser > 0 && userUsages.length >= promo.maxUsesPerUser) {
+      return null;
+    }
+
+    // Check it applies to this plan
+    const applies =
+      promo.appliesTo.includes("all") ||
+      promo.appliesTo.includes(planKey) ||
+      promo.appliesTo.includes("all_subscriptions");
+
+    if (!applies) return null;
+
+    // Create a Stripe coupon for this discount percentage
+    // Using a deterministic ID so we don't create duplicates for the same code
+    const couponId = `promo_${promo.code}_${promo.discountPercent}pct`;
+
+    let coupon;
+    try {
+      // Try to retrieve existing coupon first
+      coupon = await stripe.coupons.retrieve(couponId);
+    } catch {
+      // Doesn't exist yet — create it
+      coupon = await stripe.coupons.create({
+        id: couponId,
+        percent_off: promo.discountPercent,
+        duration: "once", // applies to first invoice only
+        name: `${promo.code} (${promo.discountPercent}% off)`,
+      });
+    }
+
+    return coupon.id;
+  } catch (err) {
+    console.error("resolveStripeCoupon error:", err);
+    return null;
+  }
+}
+
 export async function POST(req) {
   try {
     const session = await getServerSession(authOptions);
@@ -55,6 +120,7 @@ export async function POST(req) {
     const planKey = String(body?.plan || "").toLowerCase().trim();
     const billing = String(body?.billing || "monthly").toLowerCase().trim();
     const paymentOption = String(body?.paymentOption || "card").toLowerCase().trim();
+    const promoCode = String(body?.promoCode || "").trim();
 
     const plan = PLANS[planKey];
 
@@ -83,14 +149,11 @@ export async function POST(req) {
     const unitAmount =
       billing === "annual" ? plan.annualAmount : plan.monthlyAmount;
 
-    // 💰 CREDIT LOGIC (FINAL)
+    // ── Credit logic ──────────────────────────────────────────────────────────
     const userCredits = Number(user.credits || 0);
-
     const periodsCovered = Math.floor(userCredits / unitAmount);
-
     const useCredits = paymentOption === "credits" && periodsCovered > 0;
 
-    // ❗ REQUIRE CARD
     if (paymentOption === "credits" && !user.hasPaymentMethod) {
       return NextResponse.json(
         { error: "Add a payment method before using credits." },
@@ -98,9 +161,7 @@ export async function POST(req) {
       );
     }
 
-    // 📆 CALCULATE CREDIT COVERAGE
     let creditDays = 0;
-
     if (useCredits) {
       creditDays =
         billing === "annual"
@@ -110,21 +171,28 @@ export async function POST(req) {
 
     const effectiveTrialDays = useCredits ? creditDays : plan.trialDays;
 
+    // ── Promo: resolve to a Stripe coupon ID ──────────────────────────────────
+    const couponId = promoCode
+      ? await resolveStripeCoupon(promoCode, planKey, email)
+      : null;
+
     const baseUrl = getBaseUrl(req);
 
-    const checkoutSession = await stripe.checkout.sessions.create({
+    // ── Create Stripe checkout session ────────────────────────────────────────
+    const checkoutSessionParams = {
       mode: "subscription",
       success_url: `${baseUrl}/account?success=1`,
       cancel_url: `${baseUrl}/pricing?cancel=1`,
       customer_email: email,
 
-      payment_method_collection: "always", // 🔥 ensures card is collected
+      payment_method_collection: "always",
       payment_method_types: ["card"],
 
       metadata: {
         email,
         plan: plan.key,
         billing,
+        promoCode: promoCode || "",
         usedCredits: useCredits ? "true" : "false",
         periodsCovered: String(periodsCovered),
         creditsUsed: String(periodsCovered * unitAmount),
@@ -135,6 +203,7 @@ export async function POST(req) {
           email,
           plan: plan.key,
           billing,
+          promoCode: promoCode || "",
           usedCredits: useCredits ? "true" : "false",
           periodsCovered: String(periodsCovered),
           creditsUsed: String(periodsCovered * unitAmount),
@@ -162,23 +231,27 @@ export async function POST(req) {
           },
         },
       ],
-    });
+    };
 
-    // 🔥 DEDUCT CREDITS (CRITICAL)
+    // Apply the Stripe coupon if we resolved one
+    if (couponId) {
+      checkoutSessionParams.discounts = [{ coupon: couponId }];
+    }
+
+    const checkoutSession = await stripe.checkout.sessions.create(
+      checkoutSessionParams
+    );
+
+    // ── Deduct credits ────────────────────────────────────────────────────────
     if (useCredits) {
       const creditsToUse = periodsCovered * unitAmount;
-
       user.credits -= creditsToUse;
-
-      // track credit usage
       user.creditSubscriptions.push({
         startedAt: new Date(),
         plan: plan.key,
         creditsUsed: creditsToUse,
       });
-
       user.subscription.startedWithCredits = true;
-
       await user.save();
     }
 
@@ -187,10 +260,10 @@ export async function POST(req) {
       usedCredits: useCredits,
       creditsUsed: periodsCovered * unitAmount,
       periodsCovered,
+      discountApplied: !!couponId,
     });
   } catch (err) {
     console.error(err);
-
     return NextResponse.json(
       { error: "Checkout failed", details: err.message },
       { status: 500 }
