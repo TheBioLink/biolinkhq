@@ -1,33 +1,51 @@
+"use client";
+
 import toast from "react-hot-toast";
 
-export async function upload(ev, callbackFn) {
+export async function upload(ev, callbackFn, type = "avatar") {
   const file = ev.target.files?.[0];
+  if (!file) return;
 
-  if (file) {
+  const uploadPromise = new Promise((resolve, reject) => {
+    const reader = new FileReader();
 
-    const uploadPromise = new Promise((resolve, reject) => {
-      const data = new FormData;
-      data.set('file', file);
-      fetch('/api/upload', {
-        method: 'POST',
-        body: data,
-      }).then(response => {
-        if (response.ok) {
-          response.json().then(link => {
-            callbackFn(link);
-            resolve(link);
-          });
-        } else {
-          reject();
+    reader.onloadend = async () => {
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileBase64: reader.result,
+            type, // "avatar" or "banner"
+          }),
+        });
+
+        const json = await res.json();
+
+        if (!res.ok) {
+          console.error("❌ Upload failed:", json);
+          return reject(json?.error || "Upload failed");
         }
-      });
-    });
 
-    await toast.promise(uploadPromise, {
-      loading: 'Uploading...',
-      success: 'Uploaded!',
-      error: 'Upload error!',
-    });
+        callbackFn(json.url);
+        resolve(json.url);
 
-  }
+      } catch (err) {
+        console.error("❌ Upload error:", err);
+        reject("Upload failed");
+      }
+    };
+
+    reader.onerror = () => reject("File read failed");
+
+    reader.readAsDataURL(file);
+  });
+
+  await toast.promise(uploadPromise, {
+    loading: "Uploading...",
+    success: "Uploaded!",
+    error: "Upload error!",
+  });
 }
