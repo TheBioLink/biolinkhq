@@ -174,7 +174,8 @@ export default function PremiumTab({ page, hasActiveSub, subscriptionStatus }) {
 
         {ownedAddons.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-center">
-            <p className="text-sm text-white/40">You haven't purchased any individual features yet.</p>
+            {/* FIX: escaped apostrophe */}
+            <p className="text-sm text-white/40">You haven&apos;t purchased any individual features yet.</p>
             <Link href="/pricing">
               <button className="mt-3 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-500">
                 View individual features
