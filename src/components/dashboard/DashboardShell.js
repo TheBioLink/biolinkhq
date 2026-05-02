@@ -27,7 +27,7 @@ function mobileNavClass(active) {
     : "flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-white/55 hover:bg-white/5 hover:text-white text-xs transition";
 }
 
-// Bird icon SVG as a component since fa-bird may not be in free solid
+// Bird icon SVG
 function BirdIcon({ className = "h-4 w-4" }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor">
@@ -58,7 +58,7 @@ export default async function DashboardShell({
   const links = [
     { href: "/account", label: "My Page", icon: faFileLines, tab: "page", useFA: true },
     { href: "/account/biotweet", label: "BioTweet", icon: null, tab: "biotweet", useFA: false },
-    { href: "/account/discord-chat", label: "Community", icon: faComments, tab: "discord-chat", useFA: true },
+    { href: "/account/discord-chat", label: "Community", icon: faComments, tab: "discord-chat", useFA: true, disabled: true },
     { href: "/account/badges", label: "Badges", icon: faFlag, tab: "badges", useFA: true },
     { href: "/account/analytics", label: "Analytics", icon: faChartLine, tab: "analytics", useFA: true },
     { href: "/account/subscription", label: "Subscription", icon: faCrown, tab: "subscription", useFA: true },
@@ -107,15 +107,33 @@ export default async function DashboardShell({
               {links.map((item) => (
                 <Link
                   key={item.href}
-                  href={item.href}
-                  className={navClass(activeTab === item.tab)}
+                  href={item.disabled ? "#" : item.href}
+                  onClick={(e) => {
+                    if (item.disabled) {
+                      e.preventDefault();
+                      alert("Community is coming soon (beta)");
+                    }
+                  }}
+                  className={
+                    item.disabled
+                      ? "flex items-center gap-2 rounded-2xl px-4 py-3 text-white/30 cursor-not-allowed"
+                      : navClass(activeTab === item.tab)
+                  }
                 >
                   {item.useFA ? (
                     <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
                   ) : (
                     <BirdIcon className="h-4 w-4 shrink-0" />
                   )}
-                  <span>{item.label}</span>
+
+                  <span className="flex items-center gap-2">
+                    {item.label}
+                    {item.disabled && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 font-bold">
+                        BETA
+                      </span>
+                    )}
+                  </span>
                 </Link>
               ))}
 
@@ -158,8 +176,18 @@ export default async function DashboardShell({
         {links.slice(0, 5).map((item) => (
           <Link
             key={item.href}
-            href={item.href}
-            className={mobileNavClass(activeTab === item.tab)}
+            href={item.disabled ? "#" : item.href}
+            onClick={(e) => {
+              if (item.disabled) {
+                e.preventDefault();
+                alert("Community is coming soon (beta)");
+              }
+            }}
+            className={
+              item.disabled
+                ? "flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-white/30 cursor-not-allowed text-xs"
+                : mobileNavClass(activeTab === item.tab)
+            }
           >
             {item.useFA ? (
               <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
@@ -169,6 +197,7 @@ export default async function DashboardShell({
             <span>{item.label}</span>
           </Link>
         ))}
+
         <Link href="/api/auth/signout" className={mobileNavClass(false)}>
           <FontAwesomeIcon icon={faArrowRightFromBracket} className="h-5 w-5" />
           <span>Logout</span>
