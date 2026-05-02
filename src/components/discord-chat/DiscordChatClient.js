@@ -59,9 +59,7 @@ function ServerIcon({ server, active, onClick }) {
       ) : (
         <span className="text-sm font-black">{server.name.slice(0, 2).toUpperCase()}</span>
       )}
-      {/* Active pill */}
       <span className={`absolute -left-1 top-1/2 -translate-y-1/2 w-1 rounded-r-full bg-white transition-all ${active ? "h-8" : "h-0 group-hover:h-5"}`} />
-      {/* Tooltip */}
       <span className="pointer-events-none absolute left-14 z-50 whitespace-nowrap rounded-lg bg-black/90 px-3 py-1.5 text-xs font-bold text-white opacity-0 shadow-xl transition group-hover:opacity-100">
         {server.name}
         {isGlobal && <span className="ml-1.5 rounded-full bg-blue-500/30 px-1.5 py-0.5 text-[9px] text-blue-200">Global</span>}
@@ -287,7 +285,6 @@ function ChannelList({ server, channels, activeSlug, onSelect, canManage, onCrea
 
   return (
     <div className="flex flex-col h-full">
-      {/* Server header */}
       <div className="px-3 py-3 border-b border-white/8 shrink-0">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
@@ -331,7 +328,6 @@ function ChannelList({ server, channels, activeSlug, onSelect, canManage, onCrea
         )}
       </div>
 
-      {/* Channels */}
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         <div className="flex items-center justify-between px-2 mb-2">
           <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/25">Text Channels</span>
@@ -606,9 +602,10 @@ function ComposeBox({ myUri, myDisplayName, myProfileImage, channelName, replyin
 
 // ─── Message List ─────────────────────────────────────────────────────────────
 
-function MessageList({ messages, myUri, canDeleteAny, onReact, onReply, onDelete, onEdit, hasMore, onLoadMore, loadingMore, bottomRef }) {
+function MessageList({ messages, myUri, canDeleteAny, onReact, onReply, onDelete, onEdit, hasMore, onLoadMore, loadingMore, scrollContainerRef, bottomRef }) {
   return (
-    <div className="flex-1 overflow-y-auto flex flex-col">
+    // FIX: scroll container is here, not on the outer flex div
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col">
       {hasMore && (
         <div className="flex justify-center py-4">
           <button onClick={onLoadMore} disabled={loadingMore} className="px-4 py-1.5 rounded-full border border-white/15 text-xs font-bold text-white/50 hover:border-white/30 hover:text-white/80 transition disabled:opacity-40">
@@ -652,9 +649,36 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
   const [error, setError] = useState("");
 
   const bottomRef = useRef(null);
+  // FIX: ref to the actual scrollable container so we can check scroll position
+  const scrollContainerRef = useRef(null);
   const pollRef = useRef(null);
   const lastMessageIdRef = useRef(null);
+  // FIX: start true so initial load scrolls to bottom, but polling won't force it
   const isAtBottomRef = useRef(true);
+
+  // ── Helper: check if user is near bottom ────────────────────────────────────
+  function checkIsAtBottom() {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    // Consider "at bottom" if within 100px of the bottom
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+  }
+
+  // ── Scroll to bottom only when appropriate ──────────────────────────────────
+  function scrollToBottom(behavior = "smooth") {
+    bottomRef.current?.scrollIntoView({ behavior });
+  }
+
+  // ── Track scroll position so we don't hijack manual scrolling ──────────────
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    function onScroll() {
+      isAtBottomRef.current = checkIsAtBottom();
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   // ── Load servers on mount ───────────────────────────────────────────────────
   useEffect(() => {
@@ -704,6 +728,8 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
     setOldestCursor(null);
     setReplyingTo(null);
     clearInterval(pollRef.current);
+    // FIX: set to true so the initial load scrolls to bottom
+    isAtBottomRef.current = true;
 
     try {
       const res = await fetch(`/api/discord-chat/messages?serverSlug=${serverSlug}&channel=${channel.slug}&limit=50`);
@@ -722,12 +748,15 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
     if (activeChannel && activeServer) loadMessages(activeChannel, activeServer.slug);
   }, [activeChannel, activeServer, loadMessages]);
 
-  // ── Auto-scroll ─────────────────────────────────────────────────────────────
+  // ── Auto-scroll: only when user is at (or just arrived at) the bottom ───────
   useEffect(() => {
-    if (isAtBottomRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isAtBottomRef.current) {
+      // Use instant on first load, smooth for new messages
+      scrollToBottom("smooth");
+    }
   }, [messages]);
 
-  // ── Polling ─────────────────────────────────────────────────────────────────
+  // ── Polling: append new messages WITHOUT forcing scroll ─────────────────────
   useEffect(() => {
     if (!activeChannel || !activeServer) return;
     clearInterval(pollRef.current);
@@ -740,14 +769,24 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
         if (!latest.length) return;
         const newestId = latest[latest.length - 1].id;
         if (newestId === lastMessageIdRef.current) return;
+
+        // FIX: check scroll position BEFORE updating state, not after
+        const wasAtBottom = checkIsAtBottom();
+
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const newMsgs = latest.filter((m) => !existingIds.has(m.id));
           if (!newMsgs.length) return prev;
           lastMessageIdRef.current = newestId;
-          isAtBottomRef.current = true;
           return [...prev, ...newMsgs];
         });
+
+        // FIX: only scroll if user was already at the bottom
+        if (wasAtBottom) {
+          isAtBottomRef.current = true;
+          // Small delay to let React render the new messages first
+          setTimeout(() => scrollToBottom("smooth"), 50);
+        }
       } catch {}
     }, POLL_INTERVAL_MS);
     return () => clearInterval(pollRef.current);
@@ -764,7 +803,7 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
         setMessages((prev) => [...data.messages, ...prev]);
         setHasMore(!!data.nextCursor);
         setOldestCursor(data.nextCursor);
-        isAtBottomRef.current = false;
+        // FIX: don't touch isAtBottomRef when loading older messages
       }
     } catch {}
     setLoadingMore(false);
@@ -787,7 +826,9 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
       return [...prev, data.message];
     });
     setReplyingTo(null);
+    // FIX: always scroll to bottom when YOU send a message
     isAtBottomRef.current = true;
+    setTimeout(() => scrollToBottom("smooth"), 50);
   }
 
   // ── React ───────────────────────────────────────────────────────────────────
@@ -832,7 +873,6 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
       if (res.ok) {
         setServerInvites((prev) => prev.filter((i) => i.inviteId !== inv.inviteId));
         if (accept) {
-          // Reload servers to include the newly joined one
           const r2 = await fetch("/api/discord-chat/servers");
           const d2 = await r2.json();
           if (d2.ok) setServers(d2.servers);
@@ -870,7 +910,6 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
     }
   }
 
-  // ── Can manage ──────────────────────────────────────────────────────────────
   const canManageServer = isAdmin || activeServer?.myRole === "owner" || activeServer?.myRole === "admin";
   const canDeleteAnyMessage = isAdmin || activeServer?.myRole === "owner";
 
@@ -889,10 +928,8 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
             />
           ))}
 
-          {/* Divider */}
           <div className="w-8 h-px bg-white/10 my-1" />
 
-          {/* Create server button */}
           <button
             onClick={() => setShowCreateServer(true)}
             title="Create a Server"
@@ -909,7 +946,6 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
 
         {/* Channel sidebar */}
         <div className="w-52 shrink-0 bg-[#0b0f1a] border-r border-white/8 flex flex-col">
-          {/* Pending server invites */}
           <ServerInvitesBanner invites={serverInvites} onRespond={respondToServerInvite} />
 
           {activeServer ? (
@@ -978,6 +1014,7 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
               hasMore={hasMore}
               onLoadMore={loadMore}
               loadingMore={loadingMore}
+              scrollContainerRef={scrollContainerRef}
               bottomRef={bottomRef}
             />
           )}
