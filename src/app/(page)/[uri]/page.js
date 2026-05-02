@@ -4,6 +4,7 @@ import { Page } from "@/models/Page";
 import { getBadgeModels } from "@/models/Badge";
 import { getTeamProfileModel } from "@/models/TeamProfile";
 import PublicLinks from "@/components/PublicLinks";
+import DiscordPublicBadge from "@/components/discord/DiscordPublicBadge";
 
 export const dynamic = "force-dynamic";
 
