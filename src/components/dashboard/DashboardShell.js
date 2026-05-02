@@ -11,6 +11,7 @@ import {
   faCommentDots,
   faFlag,
   faCrown,
+  faTag,
 } from "@fortawesome/free-solid-svg-icons";
 
 function navClass(active) {
@@ -54,6 +55,7 @@ export default async function DashboardShell({
       ? [
           { href: "/account/articles", label: "Articles", icon: faFileLines, tab: "articles" },
           { href: "/account/reports", label: "Reports", icon: faFlag, tab: "reports" },
+          { href: "/account/promo", label: "Promo Codes", icon: faTag, tab: "promo" },
         ]
       : []),
   ];
@@ -105,7 +107,6 @@ export default async function DashboardShell({
 
               <div className="my-2 border-t border-white/10" />
 
-              {/* ✅ FIXED SECTION */}
               {page?.uri && (
                 <a
                   href={profileHref}
