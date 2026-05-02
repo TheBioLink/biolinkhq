@@ -41,7 +41,8 @@ function serializeTweet(t, myEmail = "") {
 
 // GET /api/biotweet?feed=home&cursor=<id>&limit=20
 // GET /api/biotweet?uri=<username>&cursor=<id>&limit=20
-// GET /api/biotweet?id=<tweetId>  (single tweet + replies)
+// GET /api/biotweet?id=<tweetId>        (single tweet + replies)
+// GET /api/biotweet?q=<search>&cursor=  (full-text search)
 export async function GET(req) {
   const session = await getServerSession(authOptions);
   const myEmail = norm(session?.user?.email || "");
@@ -51,10 +52,11 @@ export async function GET(req) {
   const feed = searchParams.get("feed");
   const uri = searchParams.get("uri");
   const id = searchParams.get("id");
+  const q = searchParams.get("q")?.trim() || "";
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit") || 20), 50);
 
-  // Single tweet + its replies
+  // ── Single tweet + replies ──────────────────────────────────────────────────
   if (id) {
     const tweet = await Tweet.findById(id).lean();
     if (!tweet || tweet.deleted) {
@@ -72,6 +74,43 @@ export async function GET(req) {
     });
   }
 
+  // ── Full-text search ────────────────────────────────────────────────────────
+  if (q) {
+    // Use a case-insensitive regex search across body, authorDisplayName, authorUri
+    // For production you'd add a $text index on body; regex works well at small scale
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+
+    const searchQuery = {
+      deleted: false,
+      $or: [
+        { body: regex },
+        { authorDisplayName: regex },
+        { authorUri: regex },
+      ],
+    };
+
+    if (cursor) {
+      try { searchQuery._id = { $lt: new mongoose.Types.ObjectId(cursor) }; } catch {}
+    }
+
+    const tweets = await Tweet.find(searchQuery)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .lean();
+
+    const hasMore = tweets.length > limit;
+    const results = hasMore ? tweets.slice(0, limit) : tweets;
+
+    return NextResponse.json({
+      ok: true,
+      tweets: results.map((t) => serializeTweet(t, myEmail)),
+      nextCursor: hasMore ? String(results[results.length - 1]._id) : null,
+      query: q,
+    });
+  }
+
+  // ── Feed / profile ──────────────────────────────────────────────────────────
   const query = { deleted: false, replyTo: null };
 
   if (uri) {
