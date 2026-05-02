@@ -1,258 +1,218 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
 
-export default function MessagesClient() {
-  const [query, setQuery] = useState("");
-  const [users, setUsers] = useState([]);
-  const [conversations, setConversations] = useState([]);
-  const [activeUser, setActiveUser] = useState(null);
-  const [activeUserInfo, setActiveUserInfo] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [blockedList, setBlockedList] = useState([]);
-  const [blockLoading, setBlockLoading] = useState(false);
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
-  const bottomRef = useRef(null);
+export default function MessagesClient({ initialMessages = [] }) {
+  const router = useRouter();
+
+  const [messages, setMessages] = useState(initialMessages);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [reportReason, setReportReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [moderationMode, setModerationMode] = useState(false);
+
   const containerRef = useRef(null);
-  const pollRef = useRef(null);
 
+  // ❌ FIX: no auto scroll forcing bottom
   useEffect(() => {
-    loadInbox();
-    loadBlockedList();
-  }, []);
-
-  useEffect(() => {
-    if (activeUser) {
-      loadChat(activeUser);
-
-      pollRef.current = setInterval(() => {
-        loadChat(activeUser);
-      }, 5000);
-    }
-
-    return () => clearInterval(pollRef.current);
-  }, [activeUser]);
-
-  // ✅ Smart scroll (ONLY if user is near bottom)
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const distanceFromBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
-
-    const isNearBottom = distanceFromBottom < 120;
-
-    if (isNearBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    // intentionally NOT forcing scroll
   }, [messages]);
 
-  async function loadInbox() {
-    const res = await fetch("/api/messages");
-    const data = await res.json();
-    setConversations(data.conversations || []);
-  }
-
-  async function loadChat(username) {
-    const res = await fetch(`/api/messages?user=${username}`);
-    const data = await res.json();
-    setMessages(data.messages || []);
-    if (data.target) setActiveUserInfo(data.target);
-  }
-
-  async function loadBlockedList() {
-    const res = await fetch("/api/messages/block");
-    const data = await res.json();
-    setBlockedList(data.blocked || []);
-  }
-
-  async function searchUsers(value) {
-    setQuery(value);
-    if (!value.trim()) {
-      setUsers([]);
-      return;
-    }
-
-    const res = await fetch("/api/messages", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: value }),
-    });
-
-    const data = await res.json();
-    setUsers(data.users || []);
-  }
-
-  async function sendMessage() {
-    if (!newMessage.trim() || sending || !activeUser) return;
-
-    setSending(true);
+  async function sendReport(message) {
     try {
-      const res = await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: activeUser,
-          body: newMessage.trim(),
-        }),
-      });
+      setLoading(true);
 
-      if (res.ok) {
-        setNewMessage("");
-        await loadChat(activeUser);
-        await loadInbox();
+      const payload = {
+        messageId: message._id,
+        content: message.content,
+        sender: message.sender,
+        createdAt: message.createdAt,
+        reason: reportReason || "No reason provided",
+        chatLog: messages, // full context logs
+      };
 
-        // force scroll ONLY when YOU send
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-      }
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function toggleBlock(username) {
-    setBlockLoading(true);
-    try {
-      const isBlocked = blockedList.includes(
-        activeUserInfo?.email?.toLowerCase() || ""
+      const res = await fetch(
+        "https://www.biolinkhq.lol/api/reports/create",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
       );
 
-      const res = await fetch("/api/messages/block", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          action: isBlocked ? "unblock" : "block",
-        }),
-      });
+      if (!res.ok) throw new Error("Failed to submit report");
 
-      const data = await res.json();
-      if (data.ok) await loadBlockedList();
+      setSelectedMessage(null);
+      setReportReason("");
+
+      // redirect to dashboard reports page
+      router.push("/account/reports");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to report message");
     } finally {
-      setBlockLoading(false);
+      setLoading(false);
     }
   }
 
-  function openChat(username, userInfo = null) {
-    setActiveUser(username);
-    setActiveUserInfo(userInfo);
-    setQuery("");
-    setUsers([]);
-    setMessages([]);
+  async function deleteMessage(messageId) {
+    try {
+      await fetch("/api/messages/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
 
-    // scroll on open
-    setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "auto" });
-    }, 100);
+      setMessages((prev) =>
+        prev.filter((m) => m._id !== messageId)
+      );
+    } catch (err) {
+      console.error(err);
+    }
   }
 
-  function closeChat() {
-    setActiveUser(null);
-    setActiveUserInfo(null);
-    setMessages([]);
-    clearInterval(pollRef.current);
-    loadInbox();
+  async function flagMessage(messageId) {
+    try {
+      await fetch("/api/messages/flag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+    } catch (err) {
+      console.error(err);
+    }
   }
-
-  const isActiveUserBlocked = activeUserInfo?.email
-    ? blockedList.includes(activeUserInfo.email.toLowerCase())
-    : false;
 
   return (
-    <div className="flex gap-6 h-[80vh]">
+    <div className="flex h-screen bg-[#0b0f19] text-white">
+      {/* LEFT: CHAT LIST */}
+      <div className="flex w-full flex-col border-r border-white/10">
+        {/* HEADER */}
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
+          <h1 className="text-lg font-bold">Messages</h1>
 
-      {/* LEFT SIDEBAR */}
-      <div className="w-80 flex flex-col bg-white/[0.03] border border-white/10 rounded-2xl p-4">
-        <input
-          value={query}
-          onChange={(e) => searchUsers(e.target.value)}
-          placeholder="Search users..."
-          className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
-        />
+          <button
+            onClick={() => setModerationMode(!moderationMode)}
+            className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+              moderationMode
+                ? "bg-red-500 text-black"
+                : "bg-white/10 text-white"
+            }`}
+          >
+            {moderationMode ? "Moderation ON" : "Moderation"}
+          </button>
+        </div>
 
-        <div className="flex-1 mt-4 overflow-y-auto space-y-2 pr-1">
-          {query && users.map((u) => (
-            <button
-              key={u.uri}
-              onClick={() => openChat(u.uri, u)}
-              className="w-full flex items-center gap-3 rounded-xl p-3 hover:bg-white/10"
+        {/* CHAT AREA */}
+        <div
+          ref={containerRef}
+          className="flex-1 space-y-3 overflow-y-auto p-4"
+        >
+          {messages.map((msg) => (
+            <div
+              key={msg._id}
+              className="group relative flex flex-col rounded-xl border border-white/10 bg-white/5 p-3"
             >
-              <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center font-bold">
-                {(u.displayName || "?")[0]}
-              </div>
-              <div>
-                <p className="text-sm text-white">{u.displayName}</p>
-                <p className="text-xs text-white/40">@{u.username}</p>
-              </div>
-            </button>
-          ))}
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-white/80">
+                    {msg.sender?.name || "Unknown"}
+                  </p>
+                  <p className="text-base">{msg.content}</p>
+                  <p className="mt-1 text-xs text-white/40">
+                    {new Date(msg.createdAt).toLocaleString()}
+                  </p>
+                </div>
 
-          {!query && conversations.map((c) => (
-            <button
-              key={c.uri}
-              onClick={() => openChat(c.uri, c)}
-              className={`w-full flex items-center gap-3 rounded-xl p-3 ${
-                activeUser === c.uri
-                  ? "bg-blue-500/10 border border-blue-500/20"
-                  : "hover:bg-white/10"
-              }`}
-            >
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold">
-                {(c.displayName || "?")[0]}
+                {/* MODERATION BUTTONS */}
+                {moderationMode && (
+                  <div className="flex gap-2 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      onClick={() => flagMessage(msg._id)}
+                      className="rounded bg-yellow-500 px-2 py-1 text-xs text-black"
+                    >
+                      Flag
+                    </button>
+
+                    <button
+                      onClick={() => deleteMessage(msg._id)}
+                      className="rounded bg-red-500 px-2 py-1 text-xs text-black"
+                    >
+                      Delete
+                    </button>
+
+                    <button
+                      onClick={() => setSelectedMessage(msg)}
+                      className="rounded bg-blue-500 px-2 py-1 text-xs text-white"
+                    >
+                      Report
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex-1">
-                <p className="text-sm text-white">{c.displayName}</p>
-                <p className="text-xs text-white/40 truncate">{c.lastMessage}</p>
-              </div>
-            </button>
+
+              {/* normal report button */}
+              {!moderationMode && (
+                <button
+                  onClick={() => setSelectedMessage(msg)}
+                  className="mt-2 text-left text-xs text-blue-400 hover:underline"
+                >
+                  Report message
+                </button>
+              )}
+            </div>
           ))}
         </div>
       </div>
 
-      {/* CHAT */}
-      <div className="flex-1 flex flex-col border border-white/10 rounded-2xl overflow-hidden">
-        {!activeUser ? (
-          <div className="flex-1 flex items-center justify-center text-white/30">
-            Select a conversation
-          </div>
-        ) : (
-          <>
-            <div className="px-6 py-4 border-b border-white/10 flex justify-between">
-              <p className="text-white">{activeUserInfo?.displayName}</p>
-              <button onClick={closeChat}>✕</button>
-            </div>
+      {/* RIGHT: REPORT PANEL */}
+      {selectedMessage && (
+        <div className="w-[400px] border-l border-white/10 bg-[#0f1629] p-4">
+          <h2 className="text-lg font-bold">Report Message</h2>
 
-            <div
-              ref={containerRef}
-              className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
-            >
-              {messages.map((m, i) => (
-                <div key={i} className={m.isMine ? "text-right" : ""}>
-                  <div
-                    className={`inline-block px-4 py-2 rounded-2xl ${
-                      m.isMine ? "bg-blue-600" : "bg-white/10"
-                    }`}
-                  >
-                    {m.body}
-                  </div>
+          <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
+            <p className="text-sm text-white/60">Message:</p>
+            <p className="text-white">{selectedMessage.content}</p>
+          </div>
+
+          <textarea
+            className="mt-4 w-full rounded-lg border border-white/10 bg-black/40 p-2 text-sm text-white"
+            placeholder="Reason for report..."
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+          />
+
+          <button
+            onClick={() => sendReport(selectedMessage)}
+            disabled={loading}
+            className="mt-4 w-full rounded-lg bg-red-500 px-4 py-2 text-sm font-bold text-black hover:bg-red-400 disabled:opacity-50"
+          >
+            {loading ? "Submitting..." : "Submit Report"}
+          </button>
+
+          <button
+            onClick={() => setSelectedMessage(null)}
+            className="mt-2 w-full text-xs text-white/50 hover:text-white"
+          >
+            Cancel
+          </button>
+
+          {/* CHAT LOGS */}
+          <div className="mt-6">
+            <h3 className="text-sm font-bold text-white/70">
+              Chat Logs (Context)
+            </h3>
+            <div className="mt-2 max-h-[200px] overflow-y-auto text-xs text-white/50">
+              {messages.slice(-10).map((m) => (
+                <div key={m._id}>
+                  {m.sender?.name}: {m.content}
                 </div>
               ))}
-              <div ref={bottomRef} />
             </div>
-
-            <div className="p-4 border-t border-white/10 flex gap-2">
-              <input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 bg-white/5 px-4 py-2 rounded-xl text-white"
-              />
-              <button onClick={sendMessage}>Send</button>
-            </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
