@@ -79,6 +79,13 @@ const PageSchema = new Schema(
     // who can GIVE credits (only itsnicbtw)
     isAdmin: { type: Boolean, default: false },
 
+    // ================= 🔓 ONE-TIME UNLOCKS =================
+    // Keys: custom_background, advanced_analytics, remove_branding, premium_themes
+    oneTimeUnlocks: {
+      type: [String],
+      default: [],
+    },
+
     // ================= 💳 STRIPE =================
     stripeCustomerId: { type: String, default: "" },
     stripeCheckoutSessionId: { type: String, default: "" },
