@@ -438,7 +438,7 @@ function SearchPanel({ myUri, myDisplayName, myProfileImage, onOpenDM, onOpenDet
       {!loading && searched && results.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center px-8">
           <div className="text-3xl mb-3">🔍</div>
-          <p className="text-white/40 text-sm">No results for <span className="text-white/60 font-bold">"{query}"</span></p>
+          <p className="text-white/40 text-sm">No results for <span className="text-white/60 font-bold">&ldquo;{query}&rdquo;</span></p>
         </div>
       )}
 
