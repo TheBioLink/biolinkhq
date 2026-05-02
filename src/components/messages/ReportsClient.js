@@ -15,30 +15,66 @@ function formatDate(value) {
 export default function ReportsClient() {
   const [reports, setReports] = useState([]);
   const [openReportId, setOpenReportId] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   async function loadReports() {
-    const res = await fetch("/api/messages?admin=1", { cache: "no-store" });
-    const data = await res.json();
-    setReports(data.reports || []);
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/reports", {
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+      setReports(data.reports || []);
+    } catch (err) {
+      console.error("Failed to load reports:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function closeReport(reportId) {
-    await fetch("/api/messages", {
-      method: "PATCH",
-      body: JSON.stringify({ action: "report-status", reportId, status: "closed" }),
-    });
-    await loadReports();
+    try {
+      await fetch("/api/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "close",
+          reportId,
+        }),
+      });
+
+      await loadReports();
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   async function banReported(reportId) {
-    const confirmed = confirm("Ban this user and disable their profile?");
+    const confirmed = confirm(
+      "Ban this user and disable their account?"
+    );
+
     if (!confirmed) return;
 
-    await fetch("/api/messages", {
-      method: "PATCH",
-      body: JSON.stringify({ action: "ban-reported", reportId }),
-    });
-    await loadReports();
+    try {
+      const res = await fetch("/api/reports", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "ban-user",
+          reportId,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to ban user");
+
+      await loadReports();
+    } catch (err) {
+      console.error(err);
+      alert("Ban failed");
+    }
   }
 
   useEffect(() => {
@@ -46,50 +82,84 @@ export default function ReportsClient() {
   }, []);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {/* HEADER */}
       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-        <div className="text-sm font-bold uppercase tracking-[0.18em] text-white/40">
-          Open reports
+        <div className="text-xs font-bold uppercase tracking-[0.18em] text-white/40">
+          Moderation dashboard
         </div>
-        <div className="mt-2 text-4xl font-black">{reports.length}</div>
+
+        <div className="mt-2 text-4xl font-black">
+          {loading ? "..." : reports.length}
+        </div>
+
         <p className="mt-2 text-sm text-white/50">
-          Use Review to open the full conversation log. Close removes it from this queue.
+          Review flagged messages, inspect full chat logs, and take action.
         </p>
       </div>
 
-      {reports.length ? reports.map((r) => {
+      {/* EMPTY STATE */}
+      {!loading && reports.length === 0 && (
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center text-white/50">
+          No active reports
+        </div>
+      )}
+
+      {/* REPORT LIST */}
+      {reports.map((r) => {
         const isOpen = openReportId === r._id;
-        const log = r.messageLog?.length ? r.messageLog : r.recentMessages || [];
+        const log = r.messageLog?.length
+          ? r.messageLog
+          : r.recentMessages || [];
 
         return (
-          <article key={r._id} className="overflow-hidden rounded-3xl border border-white/10 bg-[#10141f] shadow-2xl">
+          <article
+            key={r._id}
+            className="overflow-hidden rounded-3xl border border-white/10 bg-[#10141f]"
+          >
+            {/* TOP BAR */}
             <div className="flex flex-col gap-4 border-b border-white/10 p-5 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-red-300/80">
                   Message report
                 </div>
-                <h2 className="mt-2 text-2xl font-black">@{r.reportedUsername || "unknown"}</h2>
+
+                <h2 className="mt-2 text-2xl font-black">
+                  @{r.reportedUsername || "unknown"}
+                </h2>
+
                 <div className="mt-2 space-y-1 text-sm text-white/50">
-                  <p>Reported user email: <span className="text-white/75">{r.reportedEmail}</span></p>
-                  <p>Reporter: <span className="text-white/75">@{r.reporterUsername || "unknown"}</span></p>
-                  <p>Reporter email: <span className="text-white/75">{r.reporterEmail}</span></p>
-                  <p>{formatDate(r.createdAt)}</p>
+                  <p>
+                    Reporter:{" "}
+                    <span className="text-white/80">
+                      @{r.reporterUsername || "unknown"}
+                    </span>
+                  </p>
+
+                  <p className="text-white/40">
+                    {formatDate(r.createdAt)}
+                  </p>
                 </div>
               </div>
 
+              {/* ACTIONS */}
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setOpenReportId(isOpen ? null : r._id)}
+                  onClick={() =>
+                    setOpenReportId(isOpen ? null : r._id)
+                  }
                   className="rounded-xl bg-blue-500/10 px-4 py-2 text-sm font-bold text-blue-200 hover:bg-blue-500/20"
                 >
-                  {isOpen ? "Hide review" : "Review chat"}
+                  {isOpen ? "Hide" : "Review"}
                 </button>
+
                 <button
                   onClick={() => closeReport(r._id)}
                   className="rounded-xl bg-white/10 px-4 py-2 text-sm font-bold text-white/70 hover:bg-white/15"
                 >
                   Close
                 </button>
+
                 <button
                   onClick={() => banReported(r._id)}
                   className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-bold text-red-200 hover:bg-red-500/20"
@@ -99,64 +169,76 @@ export default function ReportsClient() {
               </div>
             </div>
 
-            <div className="grid gap-5 p-5 lg:grid-cols-[1fr_1.2fr]">
+            {/* BODY */}
+            <div className="grid gap-5 p-5 lg:grid-cols-[1fr_1.3fr]">
+              {/* REASON */}
               <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <h3 className="text-sm font-black text-white/70">Reason</h3>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-white/75">
-                  {r.reason || "No reason provided."}
+                <h3 className="text-sm font-black text-white/70">
+                  Reason
+                </h3>
+                <p className="mt-3 whitespace-pre-wrap text-sm text-white/75">
+                  {r.reason || "No reason provided"}
                 </p>
               </section>
 
+              {/* PREVIEW */}
               <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <h3 className="text-sm font-black text-white/70">Quick preview</h3>
+                <h3 className="text-sm font-black text-white/70">
+                  Recent messages
+                </h3>
+
                 <div className="mt-3 space-y-2">
-                  {(r.recentMessages || []).slice(-3).map((m, index) => (
-                    <div key={index} className="rounded-xl bg-white/[0.04] p-3">
-                      <div className="mb-1 text-xs font-bold text-white/40">
-                        {m.fromUsername || "user"} • {formatDate(m.createdAt)}
+                  {(r.recentMessages || []).slice(-3).map((m, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl bg-white/[0.04] p-3"
+                    >
+                      <div className="text-xs text-white/40">
+                        {m.fromUsername} • {formatDate(m.createdAt)}
                       </div>
-                      <div className="text-sm text-white/75">{m.body}</div>
+                      <div className="text-sm text-white/80">
+                        {m.body}
+                      </div>
                     </div>
                   ))}
-                  {!r.recentMessages?.length && <p className="text-sm text-white/45">No preview saved.</p>}
                 </div>
               </section>
             </div>
 
+            {/* FULL LOG */}
             {isOpen && (
-              <section className="border-t border-white/10 bg-black/20 p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-lg font-black">Full conversation log</h3>
-                  <span className="text-xs text-white/40">{log.length} messages captured</span>
+              <div className="border-t border-white/10 bg-black/30 p-5">
+                <div className="mb-3 flex justify-between">
+                  <h3 className="text-lg font-black">
+                    Full chat log
+                  </h3>
+                  <span className="text-xs text-white/40">
+                    {log.length} messages
+                  </span>
                 </div>
 
-                <div className="max-h-[520px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-[#0d111b] p-4">
-                  {log.length ? log.map((m, index) => {
-                    const isReported = m.fromEmail === r.reportedEmail || m.fromUsername === r.reportedUsername;
-
-                    return (
-                      <div key={index} className={`flex ${isReported ? "justify-start" : "justify-end"}`}>
-                        <div className={`max-w-[82%] rounded-2xl px-4 py-3 ${isReported ? "bg-[#2b3140]" : "bg-blue-600"}`}>
-                          <div className="mb-1 text-xs font-bold text-white/60">
-                            {m.fromUsername || "user"} • {m.fromEmail || "email unavailable"} • {formatDate(m.createdAt)}
-                          </div>
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed text-white">{m.body}</div>
+                <div className="max-h-[500px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-[#0d111b] p-4">
+                  {log.map((m, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-start"
+                    >
+                      <div className="max-w-[85%] rounded-2xl bg-white/10 px-4 py-3">
+                        <div className="mb-1 text-xs text-white/40">
+                          {m.fromUsername} • {formatDate(m.createdAt)}
+                        </div>
+                        <div className="text-sm text-white">
+                          {m.body}
                         </div>
                       </div>
-                    );
-                  }) : (
-                    <p className="text-sm text-white/45">No full log was captured for this report.</p>
-                  )}
+                    </div>
+                  ))}
                 </div>
-              </section>
+              </div>
             )}
           </article>
         );
-      }) : (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center text-white/50">
-          No open reports right now.
-        </div>
-      )}
+      })}
     </div>
   );
 }
