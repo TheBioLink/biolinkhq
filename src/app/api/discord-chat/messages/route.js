@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDiscordChatMessageModel } from "@/models/DiscordChatMessage";
 import { getDiscordChannelModel } from "@/models/DiscordChannel";
+import { getDiscordServerModel } from "@/models/DiscordServer";
 import { Page } from "@/models/Page";
 import mongoose from "mongoose";
 
@@ -23,15 +24,30 @@ async function getSessionPage(session) {
   return Page.findOne({ owner: norm(session.user.email) }).lean();
 }
 
+function isItsNic(email, uri) {
+  return norm(email) === "mrrunknown44@gmail.com" || norm(uri) === "itsnicbtw";
+}
+
+async function isMemberOfServer(serverSlug, email) {
+  if (!email) return false;
+  if (serverSlug === "biolinkhq") return true; // global — everyone is a member
+  const Server = await getDiscordServerModel();
+  const server = await Server.findOne({ slug: norm(serverSlug) }).lean();
+  if (!server) return false;
+  return (server.members || []).some((m) => norm(m.email) === norm(email));
+}
+
 function serializeMessage(msg, myEmail = "") {
   return {
     id: String(msg._id),
+    serverSlug: msg.serverSlug || "biolinkhq",
     channelSlug: msg.channelSlug,
     authorEmail: msg.authorEmail,
     authorUri: msg.authorUri,
     authorDisplayName: msg.authorDisplayName || msg.authorUri,
     authorProfileImage: msg.authorProfileImage || "",
-    body: msg.body,
+    // body is a virtual that decompresses bodyCompressed
+    body: msg.body || "",
     reactions: (msg.reactions || []).map((r) => ({
       emoji: r.emoji,
       count: (r.users || []).length,
@@ -47,7 +63,7 @@ function serializeMessage(msg, myEmail = "") {
   };
 }
 
-// GET /api/discord-chat/messages?channel=<slug>&cursor=<id>&limit=<n>
+// GET /api/discord-chat/messages?serverSlug=<slug>&channel=<slug>&cursor=<id>&limit=<n>
 export async function GET(req) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -55,15 +71,22 @@ export async function GET(req) {
   }
 
   const { searchParams } = new URL(req.url);
+  const serverSlug = norm(searchParams.get("serverSlug") || "biolinkhq");
   const channelSlug = norm(searchParams.get("channel") || "general");
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit") || 50), 100);
 
+  const myEmail = norm(session.user.email);
+
+  // Verify membership
+  if (!(await isMemberOfServer(serverSlug, myEmail))) {
+    return NextResponse.json({ error: "Not a member of this server" }, { status: 403 });
+  }
+
   try {
     const Message = await getDiscordChatMessageModel();
-    const myEmail = norm(session.user.email);
 
-    const query = { channelSlug, deleted: false };
+    const query = { serverSlug, channelSlug, deleted: false };
     if (cursor) {
       try {
         query._id = { $lt: new mongoose.Types.ObjectId(cursor) };
@@ -78,12 +101,19 @@ export async function GET(req) {
     const hasMore = messages.length > limit;
     const results = hasMore ? messages.slice(0, limit) : messages;
 
-    // Return in chronological order (oldest first)
+    // Reverse to chronological order
     results.reverse();
+
+    // Manually decompress — lean() doesn't apply virtuals
+    const { decompressBodyLean } = await import("@/libs/discordCompression");
+    const serialized = results.map((m) => serializeMessage(
+      { ...m, body: decompressBodyLean(m.bodyCompressed) },
+      myEmail
+    ));
 
     return NextResponse.json({
       ok: true,
-      messages: results.map((m) => serializeMessage(m, myEmail)),
+      messages: serialized,
       nextCursor: hasMore ? String(results[0]?._id) : null,
     });
   } catch (error) {
@@ -104,8 +134,11 @@ export async function POST(req) {
     return NextResponse.json({ error: "Set a username first" }, { status: 400 });
   }
 
+  const myEmail = norm(session.user.email);
+
   try {
     const body = await req.json().catch(() => ({}));
+    const serverSlug = norm(body.serverSlug || "biolinkhq");
     const channelSlug = norm(body.channelSlug || "general");
     const text = String(body.body || "").trim().slice(0, 2000);
 
@@ -113,9 +146,14 @@ export async function POST(req) {
       return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
     }
 
-    // Validate channel exists
+    // Membership check
+    if (!(await isMemberOfServer(serverSlug, myEmail))) {
+      return NextResponse.json({ error: "Not a member of this server" }, { status: 403 });
+    }
+
+    // Validate channel
     const Channel = await getDiscordChannelModel();
-    const channel = await Channel.findOne({ slug: channelSlug }).lean();
+    const channel = await Channel.findOne({ serverSlug, slug: channelSlug }).lean();
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
@@ -129,15 +167,18 @@ export async function POST(req) {
       try {
         const parent = await Message.findById(body.replyTo).lean();
         if (parent && !parent.deleted) {
-          replyToSnippet = String(parent.body || "").slice(0, 100);
+          const { decompressBodyLean } = await import("@/libs/discordCompression");
+          replyToSnippet = String(decompressBodyLean(parent.bodyCompressed) || "").slice(0, 100);
           replyToAuthorUri = parent.authorUri || "";
         }
       } catch {}
     }
 
-    const message = await Message.create({
+    // Create with compression
+    const message = await Message.createWithBody({
+      serverSlug,
       channelSlug,
-      authorEmail: norm(session.user.email),
+      authorEmail: myEmail,
       authorUri: page.uri,
       authorDisplayName: page.displayName || page.uri,
       authorProfileImage: page.profileImage || "",
@@ -149,7 +190,10 @@ export async function POST(req) {
 
     return NextResponse.json({
       ok: true,
-      message: serializeMessage(message.toObject(), norm(session.user.email)),
+      message: serializeMessage(
+        { ...message.toObject(), body: text },
+        myEmail
+      ),
     });
   } catch (error) {
     console.error("Discord messages POST error:", error);
@@ -157,7 +201,7 @@ export async function POST(req) {
   }
 }
 
-// PATCH /api/discord-chat/messages — edit or delete a message
+// PATCH /api/discord-chat/messages — edit or delete
 export async function PATCH(req) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -165,6 +209,8 @@ export async function PATCH(req) {
   }
 
   const myEmail = norm(session.user.email);
+  const page = await getSessionPage(session);
+  const myUri = page?.uri || "";
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -178,12 +224,16 @@ export async function PATCH(req) {
     }
 
     if (action === "delete") {
-      // Check ownership or admin
-      await connectMainDb();
-      const page = await Page.findOne({ owner: myEmail }).lean();
-      const isAdmin = norm(page?.uri) === "itsnicbtw";
+      const admin = isItsNic(myEmail, myUri);
+      // Server owner can also delete
+      let isServerOwner = false;
+      try {
+        const Server = await getDiscordServerModel();
+        const server = await Server.findOne({ slug: message.serverSlug }).lean();
+        isServerOwner = server && norm(server.ownerEmail) === myEmail;
+      } catch {}
 
-      if (message.authorEmail !== myEmail && !isAdmin) {
+      if (message.authorEmail !== myEmail && !admin && !isServerOwner) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
@@ -202,13 +252,13 @@ export async function PATCH(req) {
         return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
       }
 
-      message.body = newBody;
+      message.setBody(newBody);
       message.editedAt = new Date();
       await message.save();
 
       return NextResponse.json({
         ok: true,
-        message: serializeMessage(message.toObject(), myEmail),
+        message: serializeMessage({ ...message.toObject(), body: newBody }, myEmail),
       });
     }
 
