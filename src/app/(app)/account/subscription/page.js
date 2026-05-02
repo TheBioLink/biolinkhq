@@ -10,14 +10,9 @@ import {
   normalizeEmail,
 } from "@/libs/stripe-subscriptions";
 
-/**
- * Compute the actual subscription status for a Page
- * Adapts logic from computeSubscriptionStatus
- */
 function computePageSubscriptionStatus(page) {
   const now = new Date();
 
-  // Permanent exclusive plan → always active
   if (page.permanentPlan === "exclusive") return "active";
 
   const sub = {
@@ -29,24 +24,12 @@ function computePageSubscriptionStatus(page) {
     cancelled_at: page.stripeSubscriptionStatus === "canceled" ? now : null,
   };
 
-  // Cancelled always wins
   if (sub.cancelled_at) return "canceled";
-
-  // Trial still active
   if (sub.trial_end && now < new Date(sub.trial_end)) return "trialing";
-
-  // Trial ended and not paid → expired
   if (!sub.has_paid && (!sub.trial_end || now > new Date(sub.trial_end))) return "expired";
+  if (sub.has_paid && sub.current_period_end && now < new Date(sub.current_period_end)) return "active";
+  if (sub.has_paid && sub.current_period_end && now > new Date(sub.current_period_end)) return "past_due";
 
-  // Paid + still within current period → active
-  if (sub.has_paid && sub.current_period_end && now < new Date(sub.current_period_end))
-    return "active";
-
-  // Paid but period expired → past_due
-  if (sub.has_paid && sub.current_period_end && now > new Date(sub.current_period_end))
-    return "past_due";
-
-  // Fallback
   return "expired";
 }
 
@@ -57,28 +40,23 @@ export default async function SubscriptionPage() {
 
   await connectDb();
 
-  // Fetch page and ensure permanent exclusive plan if applicable
   let page = await Page.findOne({ owner: email });
   page = await ensurePermanentExclusiveForPage(page);
 
   const plainPage = page?.toObject ? page.toObject() : page;
-
-  // Compute real subscription status
   const subscriptionStatus = computePageSubscriptionStatus(plainPage);
-
-  // Determine whether to show active subscription or renew prompt
   const hasActiveSub = ["active", "trialing", "past_due"].includes(subscriptionStatus);
 
   return (
     <DashboardShell
       title="Subscription"
-      subtitle="Manage your plan, billing and cancellation."
-      activeTab="subscriptions"
+      subtitle="Manage your plan, billing, and features."
+      activeTab="subscription"
     >
       <PremiumTab
         page={plainPage}
         hasActiveSub={hasActiveSub}
-        subscriptionStatus={subscriptionStatus} // pass down for renew UI
+        subscriptionStatus={subscriptionStatus}
       />
     </DashboardShell>
   );
