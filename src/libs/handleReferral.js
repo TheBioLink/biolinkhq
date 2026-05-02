@@ -1,64 +1,29 @@
-import mongoose from "mongoose";
+// src/libs/handleReferral.js
 
-const { model, models, Schema } = mongoose;
+/**
+ * Called after a successful subscription payment.
+ * Records referral earnings on the user who referred this user, if any.
+ */
+export async function handleReferralPurchase(user, plan) {
+  try {
+    if (!user?.referredBy) return;
 
-const SubscriptionSchema = new Schema(
-  {
-    status: {
-      type: String,
-      enum: ["trialing", "active", "past_due", "canceled", "expired"],
-      default: "trialing",
-    },
-    trial_end: Date,
-    current_period_end: Date,
-    has_paid: { type: Boolean, default: false },
-    cancelled_at: Date,
+    // Lazy-import to avoid circular deps
+    const { User } = await import("@/models/User");
 
-    // 🔥 IMPORTANT FOR SPLITS
-    startedWithCredits: { type: Boolean, default: false },
-    creditOriginUserId: { type: String, default: null }, // who funded credits
-  },
-  { _id: false }
-);
-
-const UserSchema = new Schema(
-  {
-    email: { type: String, required: true, unique: true },
-    name: String,
-
-    credits: { type: Number, default: 0 },
-
-    hasPaymentMethod: { type: Boolean, default: false },
-
-    referralCode: String,
-    referredBy: String,
-
-    // 🔥 referral tracking
-    referralEarnings: [
+    await User.findOneAndUpdate(
+      { referralCode: user.referredBy },
       {
-        referredUser: String,
-        plan: String,
-        timestamp: Date,
-      },
-    ],
-
-    // 🔥 credit usage tracking
-    creditSubscriptions: [
-      {
-        startedAt: Date,
-        plan: String,
-        creditsUsed: Number,
-      },
-    ],
-
-    subscription: {
-      type: SubscriptionSchema,
-      default: () => ({
-        trial_end: new Date(Date.now() + 7 * 86400000),
-      }),
-    },
-  },
-  { timestamps: true }
-);
-
-export const User = models.User || model("User", UserSchema);
+        $push: {
+          referralEarnings: {
+            referredUser: user.email,
+            plan,
+            timestamp: new Date(),
+          },
+        },
+      }
+    );
+  } catch (err) {
+    console.error("handleReferralPurchase error:", err);
+  }
+}
