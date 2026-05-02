@@ -33,6 +33,8 @@ const ADDONS = {
   },
 };
 
+const norm = (s) => (s || "").toString().toLowerCase().trim();
+
 function getBaseUrl(req) {
   return (
     process.env.NEXTAUTH_URL ||
@@ -61,6 +63,14 @@ async function applyPromoDiscount(promoCode, addonKey, basePrice, userEmail) {
       return { price: basePrice, promoId: null, discountPct: 0 };
     }
 
+    // Per-user limit check (was missing before)
+    const userUsages = promo.usages.filter(
+      (u) => norm(u.userEmail) === norm(userEmail)
+    );
+    if (promo.maxUsesPerUser > 0 && userUsages.length >= promo.maxUsesPerUser) {
+      return { price: basePrice, promoId: null, discountPct: 0 };
+    }
+
     const applies =
       promo.appliesTo.includes("all") ||
       promo.appliesTo.includes("badges") ||
@@ -68,8 +78,13 @@ async function applyPromoDiscount(promoCode, addonKey, basePrice, userEmail) {
 
     if (!applies) return { price: basePrice, promoId: null, discountPct: 0 };
 
+    // For one-time payments we reduce unit_amount directly — no coupon needed
     const discounted = Math.round(basePrice * (1 - promo.discountPercent / 100));
-    return { price: discounted, promoId: String(promo._id), discountPct: promo.discountPercent };
+    return {
+      price: discounted,
+      promoId: String(promo._id),
+      discountPct: promo.discountPercent,
+    };
   } catch {
     return { price: basePrice, promoId: null, discountPct: 0 };
   }
@@ -99,12 +114,16 @@ export async function POST(req) {
       return NextResponse.json({ error: "No page found" }, { status: 404 });
     }
 
-    // Check if user already owns this addon
     if (Array.isArray(page.oneTimeUnlocks) && page.oneTimeUnlocks.includes(addonKey)) {
       return NextResponse.json({ error: "You already own this feature" }, { status: 409 });
     }
 
-    const { price, discountPct } = await applyPromoDiscount(promoCode, addonKey, addon.price, email);
+    const { price, discountPct } = await applyPromoDiscount(
+      promoCode,
+      addonKey,
+      addon.price,
+      email
+    );
 
     const baseUrl = getBaseUrl(req);
 
@@ -126,6 +145,7 @@ export async function POST(req) {
           quantity: 1,
           price_data: {
             currency: addon.currency,
+            // Discounted price is set directly on unit_amount — correct for one-time payments
             unit_amount: price,
             product_data: {
               name: `BiolinkHQ – ${addon.name}`,
