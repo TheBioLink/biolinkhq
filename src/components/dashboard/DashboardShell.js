@@ -9,10 +9,10 @@ import {
   faFileLines,
   faChartLine,
   faArrowRightFromBracket,
-  faBird,
   faFlag,
   faCrown,
   faTag,
+  faComments,
 } from "@fortawesome/free-solid-svg-icons";
 
 function navClass(active) {
@@ -58,6 +58,7 @@ export default async function DashboardShell({
   const links = [
     { href: "/account", label: "My Page", icon: faFileLines, tab: "page", useFA: true },
     { href: "/account/biotweet", label: "BioTweet", icon: null, tab: "biotweet", useFA: false },
+    { href: "/account/discord-chat", label: "Community", icon: faComments, tab: "discord-chat", useFA: true },
     { href: "/account/badges", label: "Badges", icon: faFlag, tab: "badges", useFA: true },
     { href: "/account/analytics", label: "Analytics", icon: faChartLine, tab: "analytics", useFA: true },
     { href: "/account/subscription", label: "Subscription", icon: faCrown, tab: "subscription", useFA: true },
