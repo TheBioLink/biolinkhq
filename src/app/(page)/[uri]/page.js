@@ -1,3 +1,4 @@
+// src/app/(page)/[uri]/page.js
 import mongoose from "mongoose";
 import { notFound } from "next/navigation";
 import { Page } from "@/models/Page";
@@ -79,8 +80,13 @@ function ProfileBadge({ badge }) {
   const tooltip = badge.tagline || badge.name || "Badge";
   const icon = badge.icon;
   const href = badge.targetUrl || (badge.targetUri ? `/${badge.targetUri}` : "");
+
   const inner = icon ? (
-    <img src={icon} alt={badge.name || "Badge"} className="h-6 w-6 object-contain transition group-hover:scale-110" />
+    <img
+      src={icon}
+      alt={badge.name || "Badge"}
+      className="h-6 w-6 object-contain transition group-hover:scale-110"
+    />
   ) : (
     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs font-black text-white">
       {(badge.name || "?").slice(0, 1).toUpperCase()}
@@ -112,7 +118,6 @@ function ProfileBadge({ badge }) {
 }
 
 export default async function PublicProfilePage({ params }) {
-  // Block reserved app paths from being treated as profile URIs
   const reserved = [
     "account", "login", "pricing", "about", "contact",
     "privacy", "news", "application", "api", "analytics",
@@ -144,24 +149,42 @@ export default async function PublicProfilePage({ params }) {
     <main className="min-h-screen text-white" style={{ backgroundColor: page.bgColor }}>
       <section className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-4 py-8">
         <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-black/45 shadow-2xl backdrop-blur-xl">
+
+          {/* Banner */}
           {page.bannerImage && (
             <div className="h-44 w-full overflow-hidden bg-white/5 sm:h-56">
-              <img src={page.bannerImage} alt={`${page.displayName} banner`} className="h-full w-full object-cover" />
+              <img
+                src={page.bannerImage}
+                alt={`${page.displayName} banner`}
+                className="h-full w-full object-cover"
+              />
             </div>
           )}
 
           <div className="px-5 pb-8 pt-8 text-center">
+
+            {/* Avatar */}
             {page.profileImage && (
-              <div className={`mx-auto h-28 w-28 overflow-hidden rounded-full bg-black/30 shadow-xl ring-1 ring-white/10 ${page.bannerImage ? "-mt-20" : ""}`}>
-                <img src={page.profileImage} alt={page.displayName} className="h-full w-full object-cover" />
+              <div
+                className={`mx-auto h-28 w-28 overflow-hidden rounded-full bg-black/30 shadow-xl ring-1 ring-white/10 ${
+                  page.bannerImage ? "-mt-20" : ""
+                }`}
+              >
+                <img
+                  src={page.profileImage}
+                  alt={page.displayName}
+                  className="h-full w-full object-cover"
+                />
               </div>
             )}
 
+            {/* Display name + verified team checkmark */}
             <div className="mt-5 flex items-center justify-center gap-2">
               <h1 className="text-3xl font-black tracking-tight text-white">{page.displayName}</h1>
               {page.isTeam ? <VerifiedTeamBadge /> : null}
             </div>
 
+            {/* Collectible badges row */}
             {badges.length > 0 && (
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                 {badges.map((badge, index) => (
@@ -170,10 +193,19 @@ export default async function PublicProfilePage({ params }) {
               </div>
             )}
 
+            {/* Discord card — client-side fetch, renders nothing if not linked */}
+            <div className="mt-4 flex justify-center">
+              <DiscordPublicBadge uri={page.uri} />
+            </div>
+
+            {/* Bio */}
             {page.bio && (
-              <p className="mx-auto mt-3 max-w-xl whitespace-pre-wrap text-sm leading-6 text-white/75">{page.bio}</p>
+              <p className="mx-auto mt-4 max-w-xl whitespace-pre-wrap text-sm leading-6 text-white/75">
+                {page.bio}
+              </p>
             )}
 
+            {/* Team section */}
             {team && (
               <div className="mt-8 text-left">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -185,9 +217,22 @@ export default async function PublicProfilePage({ params }) {
                   )}
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    {team.region ? <div className="rounded-xl bg-black/25 p-3"><div className="text-xs text-white/40">Region</div><div className="font-bold">{team.region}</div></div> : null}
-                    {team.game ? <div className="rounded-xl bg-black/25 p-3"><div className="text-xs text-white/40">Game</div><div className="font-bold">{team.game}</div></div> : null}
-                    <div className="rounded-xl bg-black/25 p-3"><div className="text-xs text-white/40">Recruiting</div><div className="font-bold">{team.recruiting ? "Open" : "Closed"}</div></div>
+                    {team.region && (
+                      <div className="rounded-xl bg-black/25 p-3">
+                        <div className="text-xs text-white/40">Region</div>
+                        <div className="font-bold">{team.region}</div>
+                      </div>
+                    )}
+                    {team.game && (
+                      <div className="rounded-xl bg-black/25 p-3">
+                        <div className="text-xs text-white/40">Game</div>
+                        <div className="font-bold">{team.game}</div>
+                      </div>
+                    )}
+                    <div className="rounded-xl bg-black/25 p-3">
+                      <div className="text-xs text-white/40">Recruiting</div>
+                      <div className="font-bold">{team.recruiting ? "Open" : "Closed"}</div>
+                    </div>
                   </div>
                 </div>
 
@@ -199,12 +244,17 @@ export default async function PublicProfilePage({ params }) {
                         const href = member.profileUri ? `/${member.profileUri}` : "";
                         const card = (
                           <div className="rounded-xl border border-white/10 bg-black/25 p-3 transition hover:bg-white/[0.06]">
-                            <div className="font-black text-white">{member.username || member.profileUri}</div>
+                            <div className="font-black text-white">
+                              {member.username || member.profileUri}
+                            </div>
                             <div className="text-xs text-white/45">{member.role || "Player"}</div>
                           </div>
                         );
-
-                        return href ? <a key={index} href={href}>{card}</a> : <div key={index}>{card}</div>;
+                        return href ? (
+                          <a key={index} href={href}>{card}</a>
+                        ) : (
+                          <div key={index}>{card}</div>
+                        );
                       })}
                     </div>
                   </div>
