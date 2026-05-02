@@ -1,3 +1,4 @@
+// src/components/dashboard/DashboardShell.js
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -8,7 +9,7 @@ import {
   faFileLines,
   faChartLine,
   faArrowRightFromBracket,
-  faCommentDots,
+  faBird,
   faFlag,
   faCrown,
   faTag,
@@ -24,6 +25,15 @@ function mobileNavClass(active) {
   return active
     ? "flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-2xl bg-blue-500/15 px-3 py-2 text-blue-300 text-xs font-bold"
     : "flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-white/55 hover:bg-white/5 hover:text-white text-xs transition";
+}
+
+// Bird icon SVG as a component since fa-bird may not be in free solid
+function BirdIcon({ className = "h-4 w-4" }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
+    </svg>
+  );
 }
 
 export default async function DashboardShell({
@@ -46,16 +56,16 @@ export default async function DashboardShell({
   const isAdmin = page?.uri === "itsnicbtw";
 
   const links = [
-    { href: "/account", label: "My Page", icon: faFileLines, tab: "page" },
-    { href: "/account/messages", label: "Messages", icon: faCommentDots, tab: "messages" },
-    { href: "/account/badges", label: "Badges", icon: faFlag, tab: "badges" },
-    { href: "/account/analytics", label: "Analytics", icon: faChartLine, tab: "analytics" },
-    { href: "/account/subscription", label: "Subscription", icon: faCrown, tab: "subscription" },
+    { href: "/account", label: "My Page", icon: faFileLines, tab: "page", useFA: true },
+    { href: "/account/biotweet", label: "BioTweet", icon: null, tab: "biotweet", useFA: false },
+    { href: "/account/badges", label: "Badges", icon: faFlag, tab: "badges", useFA: true },
+    { href: "/account/analytics", label: "Analytics", icon: faChartLine, tab: "analytics", useFA: true },
+    { href: "/account/subscription", label: "Subscription", icon: faCrown, tab: "subscription", useFA: true },
     ...(isAdmin
       ? [
-          { href: "/account/articles", label: "Articles", icon: faFileLines, tab: "articles" },
-          { href: "/account/reports", label: "Reports", icon: faFlag, tab: "reports" },
-          { href: "/account/promo", label: "Promo Codes", icon: faTag, tab: "promo" },
+          { href: "/account/articles", label: "Articles", icon: faFileLines, tab: "articles", useFA: true },
+          { href: "/account/reports", label: "Reports", icon: faFlag, tab: "reports", useFA: true },
+          { href: "/account/promo", label: "Promo Codes", icon: faTag, tab: "promo", useFA: true },
         ]
       : []),
   ];
@@ -69,8 +79,7 @@ export default async function DashboardShell({
         {/* Desktop Sidebar */}
         <aside className="hidden w-64 shrink-0 lg:block">
           <div className="sticky top-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-            
-            {/* User info */}
+
             {session?.user && (
               <div className="mb-5 flex items-center gap-3 px-2">
                 {session.user.image && (
@@ -100,7 +109,11 @@ export default async function DashboardShell({
                   href={item.href}
                   className={navClass(activeTab === item.tab)}
                 >
-                  <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
+                  {item.useFA ? (
+                    <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <BirdIcon className="h-4 w-4 shrink-0" />
+                  )}
                   <span>{item.label}</span>
                 </Link>
               ))}
@@ -147,7 +160,11 @@ export default async function DashboardShell({
             href={item.href}
             className={mobileNavClass(activeTab === item.tab)}
           >
-            <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
+            {item.useFA ? (
+              <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
+            ) : (
+              <BirdIcon className="h-5 w-5" />
+            )}
             <span>{item.label}</span>
           </Link>
         ))}
