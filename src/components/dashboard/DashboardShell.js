@@ -58,7 +58,7 @@ export default async function DashboardShell({
   const links = [
     { href: "/account", label: "My Page", icon: faFileLines, tab: "page", useFA: true },
     { href: "/account/biotweet", label: "BioTweet", icon: null, tab: "biotweet", useFA: false },
-    { href: "/account/discord-chat", label: "Community", icon: faComments, tab: "discord-chat", useFA: true, disabled: true },
+    { href: "/account/discord-chat", label: "Community", icon: faComments, tab: "discord-chat", useFA: true, beta: true },
     { href: "/account/badges", label: "Badges", icon: faFlag, tab: "badges", useFA: true },
     { href: "/account/analytics", label: "Analytics", icon: faChartLine, tab: "analytics", useFA: true },
     { href: "/account/subscription", label: "Subscription", icon: faCrown, tab: "subscription", useFA: true },
@@ -105,38 +105,26 @@ export default async function DashboardShell({
 
             <nav className="space-y-1">
               {links.map((item) => (
-                item.disabled ? (
-                  <div
-                    key={item.href}
-                    className="flex items-center gap-2 rounded-2xl px-4 py-3 text-white/30 cursor-not-allowed"
-                  >
-                    {item.useFA ? (
-                      <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <BirdIcon className="h-4 w-4 shrink-0" />
-                    )}
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={navClass(activeTab === item.tab)}
+                >
+                  {item.useFA ? (
+                    <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <BirdIcon className="h-4 w-4 shrink-0" />
+                  )}
 
-                    <span className="flex items-center gap-2">
-                      {item.label}
+                  <span className="flex items-center gap-2">
+                    {item.label}
+                    {item.beta && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 font-bold">
                         BETA
                       </span>
-                    </span>
-                  </div>
-                ) : (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={navClass(activeTab === item.tab)}
-                  >
-                    {item.useFA ? (
-                      <FontAwesomeIcon icon={item.icon} className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <BirdIcon className="h-4 w-4 shrink-0" />
                     )}
-                    <span>{item.label}</span>
-                  </Link>
-                )
+                  </span>
+                </Link>
               ))}
 
               <div className="my-2 border-t border-white/10" />
@@ -176,32 +164,22 @@ export default async function DashboardShell({
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-white/10 bg-[#0a0f1a]/95 px-2 py-2 backdrop-blur-xl lg:hidden">
         {links.slice(0, 5).map((item) => (
-          item.disabled ? (
-            <div
-              key={item.href}
-              className="flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-white/30 cursor-not-allowed text-xs"
-            >
-              {item.useFA ? (
-                <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-              ) : (
-                <BirdIcon className="h-5 w-5" />
-              )}
-              <span>{item.label}</span>
-            </div>
-          ) : (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={mobileNavClass(activeTab === item.tab)}
-            >
-              {item.useFA ? (
-                <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
-              ) : (
-                <BirdIcon className="h-5 w-5" />
-              )}
-              <span>{item.label}</span>
-            </Link>
-          )
+          <Link
+            key={item.href}
+            href={item.href}
+            className={mobileNavClass(activeTab === item.tab)}
+          >
+            {item.useFA ? (
+              <FontAwesomeIcon icon={item.icon} className="h-5 w-5" />
+            ) : (
+              <BirdIcon className="h-5 w-5" />
+            )}
+
+            <span className="flex items-center gap-1">
+              {item.label}
+              {item.beta && <span className="text-[9px]">BETA</span>}
+            </span>
+          </Link>
         ))}
 
         <Link href="/api/auth/signout" className={mobileNavClass(false)}>
