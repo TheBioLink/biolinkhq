@@ -1,10 +1,10 @@
 export const metadata = {
-  title: "Biolinkhq by itsnicbtw | Privacy",
-  description: "Privacy policy for Biolinkhq by itsnicbtw",
+  title: "Biolinkhq.lol | Privacy Policy",
+  description: "Privacy policy for Biolinkhq.lol by itsnicbtw",
 };
 
 export default function PrivacyPage() {
-  const effectiveDate = "2026-02-18"; // change if you want
+  const effectiveDate = "2026-05-03";
 
   return (
     <div className="py-8 px-4">
@@ -12,17 +12,23 @@ export default function PrivacyPage() {
         <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
           Privacy Policy
         </h1>
-        <p className="text-gray-500 mb-10">Effective date: {effectiveDate}</p>
+
+        <p className="text-gray-500 mb-10">
+          Effective date: {effectiveDate}
+        </p>
 
         <div className="space-y-8 text-gray-700 leading-relaxed">
+
           <section>
             <h2 className="text-2xl font-semibold text-gray-800 mb-2">
               Overview
             </h2>
             <p>
-              Biolinkhq (“we”, “us”, “our”) helps you create a public page to
-              share links and social profiles. This Privacy Policy explains what
-              information we collect, how we use it, and your choices.
+              Biolinkhq.lol (“Biolinkhq”, “we”, “us”, or “our”) is a platform
+              that allows users to create public bio pages, join teams,
+              communicate through messaging systems, and participate in
+              moderated communities. This Privacy Policy explains how we
+              collect, use, and protect your information.
             </p>
           </section>
 
@@ -30,25 +36,45 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-2">
               Information We Collect
             </h2>
+
             <ul className="list-disc pl-6 space-y-2">
               <li>
-                <span className="font-semibold">Account data:</span> If you sign
-                in with Google, we receive basic profile info such as your name,
-                email, and profile image (as provided by Google).
+                <span className="font-semibold">Account information:</span>{" "}
+                Name, email, and profile image when signing in via OAuth
+                providers (e.g. Google).
               </li>
+
               <li>
-                <span className="font-semibold">Content you add:</span> Links,
-                buttons, profile details, and settings you choose to publish.
+                <span className="font-semibold">Profile content:</span> Links,
+                bios, images, and settings you publish on your public page.
               </li>
+
               <li>
-                <span className="font-semibold">Usage/analytics events:</span>{" "}
-                We may record basic events like page views and link clicks to
-                provide analytics inside your dashboard.
+                <span className="font-semibold">Team data:</span> Information
+                related to teams you join or create, including roles,
+                memberships, and team activity.
               </li>
+
+              <li>
+                <span className="font-semibold">Messaging data:</span> Messages
+                sent through our internal messaging system, including content,
+                timestamps, and recipient information.
+              </li>
+
+              <li>
+                <span className="font-semibold">Moderation data:</span> Reports,
+                flagged content, enforcement actions, and moderation logs used
+                to keep the platform safe.
+              </li>
+
+              <li>
+                <span className="font-semibold">Usage data:</span> Page views,
+                clicks, and feature interactions for analytics and improvement.
+              </li>
+
               <li>
                 <span className="font-semibold">Technical data:</span> IP
-                address, device/browser data, and timestamps for security,
-                debugging, and performance.
+                address, device type, browser information, and timestamps.
               </li>
             </ul>
           </section>
@@ -57,48 +83,81 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-2">
               How We Use Information
             </h2>
+
             <ul className="list-disc pl-6 space-y-2">
-              <li>To provide login and account functionality.</li>
-              <li>To host and display your public Biolinkhq page.</li>
-              <li>To generate analytics (views/clicks) for your links.</li>
-              <li>To secure the platform and prevent abuse.</li>
-              <li>To improve product performance and user experience.</li>
+              <li>To provide accounts, authentication, and user profiles.</li>
+              <li>To operate public Biolink pages and team features.</li>
+              <li>To enable messaging between users and teams.</li>
+              <li>To moderate content and enforce platform rules.</li>
+              <li>To generate analytics and improve platform features.</li>
+              <li>To detect abuse, spam, and security threats.</li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              Sharing
+              Teams, Messaging & Moderation
             </h2>
+
             <p>
-              We do not sell your personal information. We may share data only
-              in these situations:
+              Biolinkhq.lol now includes collaborative features such as teams,
+              internal messaging, and moderation systems.
             </p>
+
+            <ul className="list-disc pl-6 space-y-2 mt-2">
+              <li>
+                <span className="font-semibold">Teams:</span> Content and
+                activity inside teams may be visible to other members of that
+                team depending on roles and permissions.
+              </li>
+
+              <li>
+                <span className="font-semibold">Messaging:</span> Messages are
+                delivered to intended recipients and may be processed for spam
+                detection, abuse prevention, and platform safety.
+              </li>
+
+              <li>
+                <span className="font-semibold">Moderation:</span> We may
+                review, flag, or remove content that violates our policies.
+                Moderation actions may be logged for safety and enforcement
+                purposes.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+              Data Sharing
+            </h2>
+
+            <p>We do not sell personal data.</p>
+
             <ul className="list-disc pl-6 space-y-2 mt-2">
               <li>
                 <span className="font-semibold">Service providers:</span>{" "}
-                Infrastructure/hosting and database providers needed to operate
-                the service.
+                Infrastructure, hosting, and database providers.
               </li>
+
               <li>
-                <span className="font-semibold">Legal:</span> If required to
-                comply with law or protect rights, safety, and security.
+                <span className="font-semibold">Legal compliance:</span> If
+                required by law or to protect users and platform integrity.
               </li>
+
               <li>
-                <span className="font-semibold">Public content:</span> Anything
-                you choose to publish on your public page is publicly visible.
+                <span className="font-semibold">Public content:</span> Content
+                you choose to publish publicly is visible to anyone.
               </li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              Cookies
+              Cookies & Sessions
             </h2>
             <p>
-              We use cookies/session storage mainly for authentication and
-              security (for example, keeping you signed in). Some analytics may
-              rely on cookies as well.
+              We use cookies and sessions for authentication, security, and
+              maintaining user sessions across the platform.
             </p>
           </section>
 
@@ -107,25 +166,22 @@ export default function PrivacyPage() {
               Data Retention
             </h2>
             <p>
-              We keep account and page data while your account is active. We may
-              retain limited logs/analytics for security and reporting.
+              We retain data while your account is active. Some logs,
+              moderation records, and analytics may be stored longer for
+              security and legal compliance.
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              Your Choices
+              Your Rights & Choices
             </h2>
+
             <ul className="list-disc pl-6 space-y-2">
-              <li>You can edit or remove your links and page content anytime.</li>
-              <li>
-                You can stop using the service by removing your public content
-                and discontinuing sign-in.
-              </li>
-              <li>
-                You can request deletion of your account/data by contacting us
-                (see below).
-              </li>
+              <li>Edit or delete your content at any time.</li>
+              <li>Leave or delete teams you are part of.</li>
+              <li>Control messaging interactions through settings or blocking.</li>
+              <li>Request deletion of your account and associated data.</li>
             </ul>
           </section>
 
@@ -134,9 +190,8 @@ export default function PrivacyPage() {
               Security
             </h2>
             <p>
-              We use reasonable safeguards to protect your data. No method of
-              transmission or storage is 100% secure, so we can’t guarantee
-              absolute security.
+              We implement reasonable security measures to protect user data,
+              but no system is completely secure.
             </p>
           </section>
 
@@ -145,11 +200,11 @@ export default function PrivacyPage() {
               Contact
             </h2>
             <p>
-              If you have questions or requests about this Privacy Policy,
-              contact:{" "}
-              <span className="font-semibold">itsnicbtw</span>.
+              For privacy concerns or data requests, contact:{" "}
+              <span className="font-semibold">support@biolinkhq.lol</span>
             </p>
           </section>
+
         </div>
       </main>
     </div>
