@@ -100,50 +100,26 @@ function CreateServerModal({ onClose, onCreate }) {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div
-        className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-[#0d1117] p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-[#0d1117] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-black text-white mb-1">Create a Server</h2>
-        <p className="text-sm text-white/45 mb-5">Your server, your rules. Invite BioLinkHQ users to join.</p>
-
+        <p className="text-sm text-white/45 mb-5">Your server, your rules.</p>
         <form onSubmit={submit} className="space-y-4">
           <div className="flex gap-3">
             <div className="space-y-1">
               <label className="text-xs font-bold text-white/50">Icon</label>
-              <input
-                value={icon}
-                onChange={(e) => setIcon(e.target.value.slice(0, 4) || "🌐")}
-                className="w-14 h-14 bg-black/30 border border-white/10 rounded-2xl text-2xl text-center outline-none focus:border-blue-500/50"
-              />
+              <input value={icon} onChange={(e) => setIcon(e.target.value.slice(0, 4) || "🌐")} className="w-14 h-14 bg-black/30 border border-white/10 rounded-2xl text-2xl text-center outline-none focus:border-blue-500/50" />
             </div>
             <div className="flex-1 space-y-1">
               <label className="text-xs font-bold text-white/50">Server name <span className="text-red-400">*</span></label>
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="My Awesome Server"
-                className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-blue-500/50"
-              />
+              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="My Awesome Server" className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-blue-500/50" />
             </div>
           </div>
-
           <div className="space-y-1">
             <label className="text-xs font-bold text-white/50">Description</label>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What's this server about?"
-              className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-blue-500/50"
-            />
+            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What's this server about?" className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-blue-500/50" />
           </div>
-
           <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 cursor-pointer">
-            <div
-              className={`h-5 w-9 rounded-full transition-colors ${isPublic ? "bg-blue-500" : "bg-white/20"}`}
-              onClick={() => setIsPublic((v) => !v)}
-            >
+            <div className={`h-5 w-9 rounded-full transition-colors ${isPublic ? "bg-blue-500" : "bg-white/20"}`} onClick={() => setIsPublic((v) => !v)}>
               <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5 ${isPublic ? "translate-x-4 ml-0.5" : "translate-x-0.5"}`} />
             </div>
             <div>
@@ -151,16 +127,10 @@ function CreateServerModal({ onClose, onCreate }) {
               <div className="text-xs text-white/35">{isPublic ? "Anyone can find and join" : "Only invited users can join"}</div>
             </div>
           </label>
-
           {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300">{err}</div>}
-
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-bold text-white/70 hover:bg-white/10 transition">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving || !name.trim()} className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50 transition">
-              {saving ? "Creating…" : "Create Server"}
-            </button>
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-bold text-white/70 hover:bg-white/10 transition">Cancel</button>
+            <button type="submit" disabled={saving || !name.trim()} className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50 transition">{saving ? "Creating…" : "Create Server"}</button>
           </div>
         </form>
       </div>
@@ -196,33 +166,14 @@ function InviteModal({ server, onClose }) {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div
-        className="relative z-10 w-full max-w-sm rounded-3xl border border-white/10 bg-[#0d1117] p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="relative z-10 w-full max-w-sm rounded-3xl border border-white/10 bg-[#0d1117] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-black text-white mb-1">Invite to {server.name}</h2>
-        <p className="text-sm text-white/45 mb-5">Enter a BioLinkHQ username to send them an invite.</p>
-
+        <p className="text-sm text-white/45 mb-5">Enter a BioLinkHQ username.</p>
         <div className="flex gap-2">
-          <input
-            autoFocus
-            value={uri}
-            onChange={(e) => setUri(e.target.value.replace(/^@/, "").toLowerCase())}
-            placeholder="@username"
-            onKeyDown={(e) => { if (e.key === "Enter") invite(); }}
-            className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/25 outline-none focus:border-blue-500/50"
-          />
-          <button
-            onClick={invite}
-            disabled={sending || !uri.trim()}
-            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50 transition"
-          >
-            {sending ? "…" : "Invite"}
-          </button>
+          <input autoFocus value={uri} onChange={(e) => setUri(e.target.value.replace(/^@/, "").toLowerCase())} placeholder="@username" onKeyDown={(e) => { if (e.key === "Enter") invite(); }} className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-white/25 outline-none focus:border-blue-500/50" />
+          <button onClick={invite} disabled={sending || !uri.trim()} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-500 disabled:opacity-50 transition">{sending ? "…" : "Invite"}</button>
         </div>
-
         {msg && <div className={`mt-3 rounded-xl px-3 py-2 text-xs font-bold ${msg.startsWith("Invite sent") ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>{msg}</div>}
-
         <button onClick={onClose} className="mt-4 w-full text-xs text-white/30 hover:text-white/60 transition">Close</button>
       </div>
     </div>
@@ -237,9 +188,7 @@ function ServerInvitesBanner({ invites, onRespond }) {
     <div className="mx-3 mt-3 space-y-2">
       {invites.map((inv) => (
         <div key={inv.inviteId} className="flex items-center gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/8 px-4 py-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-lg">
-            {inv.serverIcon || "🌐"}
-          </div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-lg">{inv.serverIcon || "🌐"}</div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-black text-white truncate">{inv.serverName}</div>
             <div className="text-xs text-white/40">Invited by @{inv.invitedBy}</div>
@@ -294,16 +243,12 @@ function ChannelList({ server, channels, activeSlug, onSelect, canManage, onCrea
               {server.isGlobal && <span className="ml-1.5 text-blue-400">· Global</span>}
             </div>
           </div>
-          <button
-            onClick={() => setShowOptions((v) => !v)}
-            className="p-1 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition"
-          >
+          <button onClick={() => setShowOptions((v) => !v)} className="p-1 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition">
             <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="5" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /><circle cx="12" cy="19" r="1" fill="currentColor" />
             </svg>
           </button>
         </div>
-
         {showOptions && (
           <div className="mt-2 rounded-xl border border-white/10 bg-black/40 overflow-hidden">
             {canManage && (
@@ -313,33 +258,23 @@ function ChannelList({ server, channels, activeSlug, onSelect, canManage, onCrea
               </button>
             )}
             {!server.isGlobal && server.myRole !== "owner" && (
-              <button onClick={() => { onLeave?.(); setShowOptions(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-red-400/80 hover:bg-red-500/10 hover:text-red-300 transition">
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                Leave Server
-              </button>
+              <button onClick={() => { onLeave?.(); setShowOptions(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-red-400/80 hover:bg-red-500/10 hover:text-red-300 transition">Leave Server</button>
             )}
             {!server.isGlobal && server.myRole === "owner" && (
-              <button onClick={() => { onDelete?.(); setShowOptions(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-red-400/80 hover:bg-red-500/10 hover:text-red-300 transition">
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2" strokeLinecap="round" /></svg>
-                Delete Server
-              </button>
+              <button onClick={() => { onDelete?.(); setShowOptions(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-red-400/80 hover:bg-red-500/10 hover:text-red-300 transition">Delete Server</button>
             )}
           </div>
         )}
       </div>
-
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         <div className="flex items-center justify-between px-2 mb-2">
           <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/25">Text Channels</span>
           {canManage && (
             <button onClick={() => setShowForm((v) => !v)} className="text-white/25 hover:text-white/60 transition" title="Add channel">
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              </svg>
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
             </button>
           )}
         </div>
-
         {canManage && showForm && (
           <form onSubmit={createChannel} className="mx-1 mb-3 rounded-xl bg-white/[0.04] border border-white/10 p-3 space-y-2">
             <div className="flex gap-2">
@@ -353,26 +288,17 @@ function ChannelList({ server, channels, activeSlug, onSelect, canManage, onCrea
             </div>
           </form>
         )}
-
         {channels.map((ch) => (
-          <button
-            key={ch.id}
-            onClick={() => onSelect(ch)}
-            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition group ${
-              activeSlug === ch.slug ? "bg-white/10 text-white" : "text-white/45 hover:bg-white/[0.05] hover:text-white/80"
-            }`}
-          >
+          <button key={ch.id} onClick={() => onSelect(ch)} className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition group ${activeSlug === ch.slug ? "bg-white/10 text-white" : "text-white/45 hover:bg-white/[0.05] hover:text-white/80"}`}>
             <span className="text-base leading-none shrink-0">{ch.emoji || "💬"}</span>
             <span className="text-sm font-semibold truncate">{ch.name}</span>
             {ch.isDefault && <span className="ml-auto text-[9px] font-black text-white/20 uppercase tracking-wider shrink-0">default</span>}
           </button>
         ))}
-
         {channels.length === 0 && <div className="px-2 py-4 text-xs text-white/25 text-center">No channels yet</div>}
       </div>
-
       <div className="px-3 py-3 border-t border-white/8 shrink-0 bg-black/20">
-        <div className="text-[10px] text-white/20 text-center tracking-wider">🔒 Messages compressed & stored securely</div>
+        <div className="text-[10px] text-white/20 text-center tracking-wider">🔒 Messages stored securely</div>
       </div>
     </div>
   );
@@ -403,7 +329,6 @@ function EmojiPicker({ onSelect, onClose }) {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
-
   return (
     <div ref={ref} className="absolute z-50 bottom-full mb-2 left-0 bg-[#1a2540] border border-white/10 rounded-2xl p-3 shadow-2xl">
       <div className="grid grid-cols-5 gap-1.5">
@@ -487,7 +412,6 @@ function MessageItem({ message, prevMessage, myUri, canDeleteAny, onReact, onRep
           )}
         </div>
       )}
-
       <div className="flex gap-3">
         <div className="w-9 shrink-0">
           {!isGrouped ? <Avatar src={message.authorProfileImage} name={message.authorDisplayName} size={36} /> : <div className="w-9 h-full" />}
@@ -500,7 +424,6 @@ function MessageItem({ message, prevMessage, myUri, canDeleteAny, onReact, onRep
               {message.isMine && <span className="text-[10px] text-blue-400/60 font-bold uppercase tracking-wide">You</span>}
             </div>
           )}
-
           {message.replyTo && message.replyToSnippet && (
             <div className="flex items-center gap-2 mb-1 pl-2 border-l-2 border-white/20">
               <span className="text-[11px] text-white/40 truncate max-w-xs">
@@ -509,7 +432,6 @@ function MessageItem({ message, prevMessage, myUri, canDeleteAny, onReact, onRep
               </span>
             </div>
           )}
-
           {editing ? (
             <div className="mt-1">
               <textarea autoFocus value={editText} onChange={(e) => setEditText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEdit(); } if (e.key === "Escape") { setEditing(false); setEditText(message.body); } }} rows={2} maxLength={MAX_MSG} className="w-full bg-[#1a2540] border border-blue-500/40 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none" />
@@ -524,7 +446,6 @@ function MessageItem({ message, prevMessage, myUri, canDeleteAny, onReact, onRep
               {message.editedAt && <span className="ml-1.5 text-[10px] text-white/25 italic">(edited)</span>}
             </p>
           )}
-
           <ReactionBar reactions={message.reactions} onReact={(emoji) => onReact(message.id, emoji)} />
         </div>
       </div>
@@ -573,7 +494,6 @@ function ComposeBox({ myUri, myDisplayName, myProfileImage, channelName, replyin
           </button>
         </div>
       )}
-
       <div className="flex gap-2 items-end bg-[#1a2540] rounded-2xl border border-white/10 px-3 py-2.5">
         <Avatar src={myProfileImage} name={myDisplayName} size={28} />
         <textarea
@@ -602,10 +522,10 @@ function ComposeBox({ myUri, myDisplayName, myProfileImage, channelName, replyin
 
 // ─── Message List ─────────────────────────────────────────────────────────────
 
-function MessageList({ messages, myUri, canDeleteAny, onReact, onReply, onDelete, onEdit, hasMore, onLoadMore, loadingMore, scrollContainerRef, bottomRef }) {
+function MessageList({ messages, myUri, canDeleteAny, onReact, onReply, onDelete, onEdit, hasMore, onLoadMore, loadingMore, scrollRef, bottomRef }) {
   return (
-    // FIX: scroll container is here, not on the outer flex div
-    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
+      {/* Load older button at top */}
       {hasMore && (
         <div className="flex justify-center py-4">
           <button onClick={onLoadMore} disabled={loadingMore} className="px-4 py-1.5 rounded-full border border-white/15 text-xs font-bold text-white/50 hover:border-white/30 hover:text-white/80 transition disabled:opacity-40">
@@ -613,19 +533,35 @@ function MessageList({ messages, myUri, canDeleteAny, onReact, onReply, onDelete
           </button>
         </div>
       )}
+
+      {/* Empty state */}
       {messages.length === 0 && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-8 pb-8">
+        <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center px-8 pb-8">
           <div className="text-4xl mb-3">💬</div>
           <h3 className="text-lg font-black text-white">Be the first to say something!</h3>
           <p className="mt-2 text-sm text-white/40">Start the conversation in this channel.</p>
         </div>
       )}
+
+      {/* Messages */}
       <div className="pb-2">
         {messages.map((msg, idx) => (
-          <MessageItem key={msg.id} message={msg} prevMessage={idx > 0 ? messages[idx - 1] : null} myUri={myUri} canDeleteAny={canDeleteAny} onReact={onReact} onReply={onReply} onDelete={onDelete} onEdit={onEdit} />
+          <MessageItem
+            key={msg.id}
+            message={msg}
+            prevMessage={idx > 0 ? messages[idx - 1] : null}
+            myUri={myUri}
+            canDeleteAny={canDeleteAny}
+            onReact={onReact}
+            onReply={onReply}
+            onDelete={onDelete}
+            onEdit={onEdit}
+          />
         ))}
       </div>
-      <div ref={bottomRef} />
+
+      {/* Scroll anchor */}
+      <div ref={bottomRef} className="h-px" />
     </div>
   );
 }
@@ -648,37 +584,40 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
   const [showInvite, setShowInvite] = useState(false);
   const [error, setError] = useState("");
 
+  // ── Scroll management ───────────────────────────────────────────────────────
+  // scrollRef attaches to the scrollable container div
+  const scrollRef = useRef(null);
+  // bottomRef is the anchor at the very bottom of messages
   const bottomRef = useRef(null);
-  // FIX: ref to the actual scrollable container so we can check scroll position
-  const scrollContainerRef = useRef(null);
+  // Track whether user is near the bottom
+  const isNearBottomRef = useRef(true);
+  // Track the last message id to detect new messages from polling
+  const lastMsgIdRef = useRef(null);
+  // Polling interval ref
   const pollRef = useRef(null);
-  const lastMessageIdRef = useRef(null);
-  // FIX: start true so initial load scrolls to bottom, but polling won't force it
-  const isAtBottomRef = useRef(true);
 
-  // ── Helper: check if user is near bottom ────────────────────────────────────
-  function checkIsAtBottom() {
-    const el = scrollContainerRef.current;
+  // ── Helper: is user near bottom? ───────────────────────────────────────────
+  function checkNearBottom() {
+    const el = scrollRef.current;
     if (!el) return true;
-    // Consider "at bottom" if within 100px of the bottom
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }
 
-  // ── Scroll to bottom only when appropriate ──────────────────────────────────
+  // ── Helper: scroll to bottom ───────────────────────────────────────────────
   function scrollToBottom(behavior = "smooth") {
-    bottomRef.current?.scrollIntoView({ behavior });
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
   }
 
-  // ── Track scroll position so we don't hijack manual scrolling ──────────────
+  // ── Track scroll position ──────────────────────────────────────────────────
   useEffect(() => {
-    const el = scrollContainerRef.current;
+    const el = scrollRef.current;
     if (!el) return;
-    function onScroll() {
-      isAtBottomRef.current = checkIsAtBottom();
-    }
+    const onScroll = () => { isNearBottomRef.current = checkNearBottom(); };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, []);
+  });
 
   // ── Load servers on mount ───────────────────────────────────────────────────
   useEffect(() => {
@@ -709,8 +648,7 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
         if (data.ok) {
           setChannels(data.channels);
           const def = data.channels.find((c) => c.isDefault) || data.channels[0];
-          if (def) setActiveChannel(def);
-          else setActiveChannel(null);
+          setActiveChannel(def || null);
         }
       } catch {
         setError("Failed to load channels");
@@ -722,88 +660,106 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
   // ── Load messages when channel changes ─────────────────────────────────────
   const loadMessages = useCallback(async (channel, serverSlug) => {
     if (!channel || !serverSlug) return;
+    clearInterval(pollRef.current);
     setLoadingMessages(true);
     setMessages([]);
     setHasMore(false);
     setOldestCursor(null);
     setReplyingTo(null);
-    clearInterval(pollRef.current);
-    // FIX: set to true so the initial load scrolls to bottom
-    isAtBottomRef.current = true;
+    lastMsgIdRef.current = null;
+    // On initial channel load, we want to scroll to bottom
+    isNearBottomRef.current = true;
 
     try {
-      const res = await fetch(`/api/discord-chat/messages?serverSlug=${serverSlug}&channel=${channel.slug}&limit=50`);
+      const res = await fetch(
+        `/api/discord-chat/messages?serverSlug=${serverSlug}&channel=${channel.slug}&limit=50`
+      );
       const data = await res.json();
       if (data.ok) {
         setMessages(data.messages);
         setHasMore(!!data.nextCursor);
         setOldestCursor(data.nextCursor);
-        if (data.messages.length > 0) lastMessageIdRef.current = data.messages[data.messages.length - 1].id;
+        if (data.messages.length > 0) {
+          lastMsgIdRef.current = data.messages[data.messages.length - 1].id;
+        }
+        // Scroll to bottom after render
+        setTimeout(() => scrollToBottom("instant"), 50);
       }
-    } catch { setError("Failed to load messages"); }
-    finally { setLoadingMessages(false); }
+    } catch {
+      setError("Failed to load messages");
+    } finally {
+      setLoadingMessages(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (activeChannel && activeServer) loadMessages(activeChannel, activeServer.slug);
+    if (activeChannel && activeServer) {
+      loadMessages(activeChannel, activeServer.slug);
+    }
   }, [activeChannel, activeServer, loadMessages]);
 
-  // ── Auto-scroll: only when user is at (or just arrived at) the bottom ───────
-  useEffect(() => {
-    if (isAtBottomRef.current) {
-      // Use instant on first load, smooth for new messages
-      scrollToBottom("smooth");
-    }
-  }, [messages]);
-
-  // ── Polling: append new messages WITHOUT forcing scroll ─────────────────────
+  // ── Polling for new messages ───────────────────────────────────────────────
   useEffect(() => {
     if (!activeChannel || !activeServer) return;
     clearInterval(pollRef.current);
+
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/discord-chat/messages?serverSlug=${activeServer.slug}&channel=${activeChannel.slug}&limit=20`);
+        const res = await fetch(
+          `/api/discord-chat/messages?serverSlug=${activeServer.slug}&channel=${activeChannel.slug}&limit=20`
+        );
         const data = await res.json();
-        if (!data.ok) return;
-        const latest = data.messages;
-        if (!latest.length) return;
-        const newestId = latest[latest.length - 1].id;
-        if (newestId === lastMessageIdRef.current) return;
+        if (!data.ok || !data.messages.length) return;
 
-        // FIX: check scroll position BEFORE updating state, not after
-        const wasAtBottom = checkIsAtBottom();
+        const latest = data.messages;
+        const newestId = latest[latest.length - 1].id;
+
+        // No new messages
+        if (newestId === lastMsgIdRef.current) return;
+
+        // Snapshot scroll position BEFORE updating state
+        const wasNearBottom = checkNearBottom();
 
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const newMsgs = latest.filter((m) => !existingIds.has(m.id));
           if (!newMsgs.length) return prev;
-          lastMessageIdRef.current = newestId;
+          lastMsgIdRef.current = newestId;
           return [...prev, ...newMsgs];
         });
 
-        // FIX: only scroll if user was already at the bottom
-        if (wasAtBottom) {
-          isAtBottomRef.current = true;
-          // Small delay to let React render the new messages first
-          setTimeout(() => scrollToBottom("smooth"), 50);
+        // Only scroll to bottom if user was already there
+        if (wasNearBottom) {
+          isNearBottomRef.current = true;
+          setTimeout(() => scrollToBottom("smooth"), 60);
         }
       } catch {}
     }, POLL_INTERVAL_MS);
+
     return () => clearInterval(pollRef.current);
   }, [activeChannel, activeServer]);
 
-  // ── Load older ──────────────────────────────────────────────────────────────
+  // ── Load older messages ─────────────────────────────────────────────────────
   async function loadMore() {
     if (!activeChannel || !activeServer || !oldestCursor || loadingMore) return;
+    const el = scrollRef.current;
+    const prevScrollHeight = el?.scrollHeight ?? 0;
     setLoadingMore(true);
     try {
-      const res = await fetch(`/api/discord-chat/messages?serverSlug=${activeServer.slug}&channel=${activeChannel.slug}&cursor=${oldestCursor}&limit=50`);
+      const res = await fetch(
+        `/api/discord-chat/messages?serverSlug=${activeServer.slug}&channel=${activeChannel.slug}&cursor=${oldestCursor}&limit=50`
+      );
       const data = await res.json();
       if (data.ok) {
         setMessages((prev) => [...data.messages, ...prev]);
         setHasMore(!!data.nextCursor);
         setOldestCursor(data.nextCursor);
-        // FIX: don't touch isAtBottomRef when loading older messages
+        // Maintain scroll position after prepending old messages
+        requestAnimationFrame(() => {
+          if (el) {
+            el.scrollTop = el.scrollHeight - prevScrollHeight;
+          }
+        });
       }
     } catch {}
     setLoadingMore(false);
@@ -815,20 +771,27 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
     const res = await fetch("/api/discord-chat/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serverSlug: activeServer.slug, channelSlug: activeChannel.slug, body: text, replyTo: replyingTo?.id || null }),
+      body: JSON.stringify({
+        serverSlug: activeServer.slug,
+        channelSlug: activeChannel.slug,
+        body: text,
+        replyTo: replyingTo?.id || null,
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to send");
+
     setMessages((prev) => {
       const existingIds = new Set(prev.map((m) => m.id));
       if (existingIds.has(data.message.id)) return prev;
-      lastMessageIdRef.current = data.message.id;
+      lastMsgIdRef.current = data.message.id;
       return [...prev, data.message];
     });
     setReplyingTo(null);
-    // FIX: always scroll to bottom when YOU send a message
-    isAtBottomRef.current = true;
-    setTimeout(() => scrollToBottom("smooth"), 50);
+
+    // Always scroll to bottom when YOU send
+    isNearBottomRef.current = true;
+    setTimeout(() => scrollToBottom("smooth"), 60);
   }
 
   // ── React ───────────────────────────────────────────────────────────────────
@@ -840,7 +803,9 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
         body: JSON.stringify({ messageId, emoji }),
       });
       const data = await res.json();
-      if (data.ok) setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, reactions: data.reactions } : m));
+      if (data.ok) {
+        setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, reactions: data.reactions } : m));
+      }
     } catch {}
   }
 
@@ -852,7 +817,9 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete", id: messageId }),
       });
-      if (res.ok) setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, deleted: true, body: "" } : m));
+      if (res.ok) {
+        setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, deleted: true, body: "" } : m));
+      }
     } catch {}
   }
 
@@ -869,7 +836,6 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "respond_invite", serverSlug: inv.serverSlug, inviteId: inv.inviteId, accept }),
       });
-      const data = await res.json();
       if (res.ok) {
         setServerInvites((prev) => prev.filter((i) => i.inviteId !== inv.inviteId));
         if (accept) {
@@ -898,7 +864,7 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
 
   async function handleDeleteServer() {
     if (!activeServer || activeServer.isGlobal) return;
-    if (!confirm(`Permanently delete "${activeServer.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Permanently delete "${activeServer.name}"?`)) return;
     const res = await fetch("/api/discord-chat/servers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -924,36 +890,38 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
               key={server.id}
               server={server}
               active={activeServer?.slug === server.slug}
-              onClick={() => { setActiveServer(server); setActiveChannel(null); setMessages([]); }}
+              onClick={() => {
+                setActiveServer(server);
+                setActiveChannel(null);
+                setMessages([]);
+              }}
             />
           ))}
-
           <div className="w-8 h-px bg-white/10 my-1" />
-
           <button
             onClick={() => setShowCreateServer(true)}
             title="Create a Server"
-            className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/40 hover:rounded-xl hover:bg-emerald-500/20 hover:text-emerald-400 transition-all duration-200"
+            className="group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/40 hover:rounded-xl hover:bg-emerald-500/20 hover:text-emerald-400 transition-all duration-200"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
             </svg>
-            <span className="pointer-events-none absolute left-[76px] z-50 whitespace-nowrap rounded-lg bg-black/90 px-3 py-1.5 text-xs font-bold text-white opacity-0 shadow-xl transition group-hover:opacity-100">
-              Create Server
-            </span>
           </button>
         </div>
 
         {/* Channel sidebar */}
         <div className="w-52 shrink-0 bg-[#0b0f1a] border-r border-white/8 flex flex-col">
           <ServerInvitesBanner invites={serverInvites} onRespond={respondToServerInvite} />
-
           {activeServer ? (
             <ChannelList
               server={activeServer}
               channels={channels}
               activeSlug={activeChannel?.slug}
-              onSelect={(ch) => { setActiveChannel(ch); setMessages([]); setReplyingTo(null); }}
+              onSelect={(ch) => {
+                setActiveChannel(ch);
+                setMessages([]);
+                setReplyingTo(null);
+              }}
               canManage={canManageServer}
               onCreateChannel={(ch) => setChannels((prev) => [...prev, ch])}
               onInvite={() => setShowInvite(true)}
@@ -965,8 +933,9 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
           )}
         </div>
 
-        {/* Main chat */}
-        <div className="flex-1 flex flex-col min-w-0">
+        {/* Main chat area — key layout fix: flex col, overflow hidden */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
           {/* Channel header */}
           <div className="px-5 py-3 border-b border-white/8 shrink-0 flex items-center gap-3">
             {activeChannel ? (
@@ -987,11 +956,12 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
           </div>
 
           {error && (
-            <div className="mx-4 mt-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300">{error}</div>
+            <div className="mx-4 mt-3 shrink-0 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300">{error}</div>
           )}
 
+          {/* Messages area — takes remaining space, scrolls internally */}
           {loadingMessages ? (
-            <div className="flex-1 flex flex-col justify-end pb-4">
+            <div className="flex-1 flex flex-col justify-end pb-4 overflow-hidden">
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="flex gap-3 px-4 py-2 animate-pulse">
                   <div className="w-9 h-9 rounded-full bg-white/8 shrink-0 mt-0.5" />
@@ -1014,11 +984,12 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
               hasMore={hasMore}
               onLoadMore={loadMore}
               loadingMore={loadingMore}
-              scrollContainerRef={scrollContainerRef}
+              scrollRef={scrollRef}
               bottomRef={bottomRef}
             />
           )}
 
+          {/* Compose box — always at bottom */}
           {activeChannel && (
             <ComposeBox
               myUri={myUri}
@@ -1033,15 +1004,22 @@ export default function DiscordChatClient({ myUri, myDisplayName, myProfileImage
           )}
 
           {!myUri && (
-            <div className="px-4 pb-3 text-center">
+            <div className="px-4 pb-3 shrink-0 text-center">
               <a href="/account" className="text-sm text-blue-400 hover:text-blue-300 underline font-bold">Set a username to start chatting →</a>
             </div>
           )}
         </div>
       </div>
 
-      {showCreateServer && <CreateServerModal onClose={() => setShowCreateServer(false)} onCreate={(s) => { setServers((prev) => [...prev, s]); setActiveServer(s); }} />}
-      {showInvite && activeServer && <InviteModal server={activeServer} onClose={() => setShowInvite(false)} />}
+      {showCreateServer && (
+        <CreateServerModal
+          onClose={() => setShowCreateServer(false)}
+          onCreate={(s) => { setServers((prev) => [...prev, s]); setActiveServer(s); }}
+        />
+      )}
+      {showInvite && activeServer && (
+        <InviteModal server={activeServer} onClose={() => setShowInvite(false)} />
+      )}
     </>
   );
 }
